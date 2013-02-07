@@ -1,0 +1,31 @@
+#ring{
+			background: #e0ffe0 url(images/pixel_grid.jpg);
+			width: 300px;
+			height: 300px;
+			position: relative;
+			overflow: hidden;
+		}
+		
+		.player{
+			background: #000000 url(images/girl.jpg);
+			left: 50px;
+			top: 150px;
+			position: absolute;
+			width: 30px;
+			height: 30px
+		}
+		#player2{
+			background: #FF00FF url(images/miketyson.jpg);
+			left: 250px;
+		}
+		.arm{
+			background: 	#7CFC00;
+			position: absolute;
+			width: 10px;
+			height: 5px;
+			left: 30px;
+			top: 0px;
+		}
+		#arm2{
+			top: 25px;
+		}
