@@ -207,8 +207,8 @@ var PlayerObject = (function() {
 })();
 
 function init(){
-	TXS.BRICK = "images/brick.PNG";
-	TXS.PERMA = "images/permabrick.JPG";
+	TXS.BRICK = "images/brick.png";
+	TXS.PERMA = "images/permabrick.jpg";
 	TXS.TYSON = "images/miketyson.jpg";
 	
 	ctx = document.getElementById('canvas').getContext('2d');
