@@ -130,12 +130,10 @@ var MovingObject = (function() {
 	};
 	
 	MovingObject.prototype.collision = function(){	
-		var offset_x = OFFSET_X;
-		var offset_y = OFFSET_Y;
 		var center_x = this._x + BLOCK_WIDTH/2;
 		var center_y = this._y + BLOCK_WIDTH/2;
-		this._grid_x = Math.floor((center_x - offset_x) / BLOCK_WIDTH);
-		this._grid_y = Math.floor((center_y - offset_y) / BLOCK_WIDTH);
+		this._grid_x = Math.floor((center_x - OFFSET_X) / BLOCK_WIDTH);
+		this._grid_y = Math.floor((center_y - OFFSET_Y) / BLOCK_WIDTH);
 		
 		if (this._direction_x){
 			this._direction_y = 0;
@@ -192,20 +190,50 @@ var PlayerObject = (function() {
 	var super_class = new MovingObject();
 	PlayerObject.prototype = super_class;
 	
+  // overriding player move function to do scrolling and allignment stuff
 	PlayerObject.prototype.move = function() {
-    // do checks for scrolling on center
-    if(this._direction_x) { // moving horizontally
-if(scroll_offset_x)console.log(scroll_offset_x);
-      scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X;
+  
+    // align player with grid
+    var error_x = 0;
+    var error_y = 0;
+    var grid_position = grid[this._grid_x][this._grid_y].getPosition();
+    if(this._direction_x) {
+      error_y = grid_position.y - this._y;
+      if(error_y) {
+        if(Math.abs(error_y) > this._movement_speed ) {
+          if(error_y < 0) {
+            error_y = -this._movement_speed;
+          } else {
+            error_y = this._movement_speed;
+          }
+        }
+      }
+    } else if(this._direction_y) {
+      error_x = grid_position.x - this._x;
+      if(error_x) {
+        if(Math.abs(error_x) > this._movement_speed ) {
+          if(error_x < 0) {
+            error_x = -this._movement_speed;
+          } else {
+            error_x = this._movement_speed;
+          }
+        }
+      }
+    }
+  
+    // do scrolling stuff
+    if(this._direction_x || error_x) { // moving horizontally
+      scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
       
       if(scroll_offset_x < 0) scroll_offset_x = 0;
       if(scroll_offset_x > SCROLL_MAX_X)
         scroll_offset_x = SCROLL_MAX_X;
     }
 
+    // do the usual stuff in move();
 		this.setPosition(
-			this._x+this._direction_x*this._movement_speed, 
-			this._y+this._direction_y*this._movement_speed
+			this._x+this._direction_x*this._movement_speed+error_x, 
+			this._y+this._direction_y*this._movement_speed+error_y
 		);
 	};
   
