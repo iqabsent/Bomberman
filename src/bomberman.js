@@ -8,6 +8,7 @@ var MAP_WIDTH = 25;
 var MAP_HEIGHT = 9;
 var OFFSET_X = 5;
 var OFFSET_Y = 35;
+var DRAG_TOLERANCE = 35;
 
 // enums / flags
 var TXS = {
@@ -20,7 +21,7 @@ var TYPE = {
 	PASSABLE: 1,
 	SOMETHING: 2
 };
-var Key = {
+var KEY = {
 	UP: 38,
 	DOWN: 40,
 	LEFT: 37,
@@ -32,10 +33,15 @@ var Key = {
 // variables
 var SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH)/2);
 var SCROLL_MAX_X = MAP_WIDTH * BLOCK_WIDTH + OFFSET_X * 2 - SCROLL_MIN_X * 2 - BLOCK_WIDTH;
+var SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_WIDTH)/2);
+var SCROLL_MAX_Y = MAP_HEIGHT * BLOCK_WIDTH + OFFSET_Y * 2 - SCROLL_MIN_Y * 2 - BLOCK_WIDTH;
+var CAN_SCROLL_X = SCROLL_MAX_X > SCROLL_MIN_X;
+var CAN_SCROLL_Y = SCROLL_MAX_Y > SCROLL_MIN_Y;
 var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_WIDTH + OFFSET_Y;
 var grid = new Array();
 var pressedKeys = [];
+var point;
 var player;
 var density = 2;
 var scroll_offset_x = 0;
@@ -222,12 +228,21 @@ var PlayerObject = (function() {
     }
   
     // do scrolling stuff
-    if(this._direction_x || error_x) { // moving horizontally
+    if(CAN_SCROLL_X && (this._direction_x || error_x)) {
+      // moving horizontally
       scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
       
       if(scroll_offset_x < 0) scroll_offset_x = 0;
       if(scroll_offset_x > SCROLL_MAX_X)
         scroll_offset_x = SCROLL_MAX_X;
+    }
+    if(CAN_SCROLL_Y && (this._direction_y || error_y)) {
+      // moving horizontally
+      scroll_offset_y = this._y + this._movement_speed * this._direction_y - SCROLL_MIN_Y + error_y;
+   
+      if(scroll_offset_y < 0) scroll_offset_y = 0;
+      if(scroll_offset_y > SCROLL_MAX_Y)
+        scroll_offset_y = SCROLL_MAX_Y;
     }
 
     // do the usual stuff in move();
@@ -237,22 +252,85 @@ var PlayerObject = (function() {
 		);
 	};
   
-	PlayerObject.prototype.movement = function(x,y) {
+	PlayerObject.prototype.movement = function() {
 		this._direction_x = 0;
 		this._direction_y = 0;
-		if (pressedKeys[Key.UP]) this._direction_y--; 
-		if (pressedKeys[Key.DOWN]) this._direction_y++;
-		if (pressedKeys[Key.LEFT]) this._direction_x--;
-		if (pressedKeys[Key.RIGHT])this._direction_x++; 
-		
+		if (pressedKeys[KEY.UP]) this._direction_y--; 
+		if (pressedKeys[KEY.DOWN]) this._direction_y++;
+		if (pressedKeys[KEY.LEFT]) this._direction_x--;
+		if (pressedKeys[KEY.RIGHT])this._direction_x++;
+    
 		this.physics();
 	};
 	
 	return PlayerObject;
 })();
 
+
+var PointDevice = (function() {
+  var _touch, _drag;
+  var _last_x, _last_y;
+  
+	function PointDevice(){
+		this._touch = false;
+    this._touch_x = 0;
+    this._touch_y = 0;
+	};
+
+  PointDevice.prototype.point = function(x, y) {
+    this._touch_x = x;
+    this._touch_y = y;
+    this._touch = true;
+  };
+  
+  PointDevice.prototype.releaseKeys = function(x, y) {
+    pressedKeys[KEY.LEFT] = false;
+    pressedKeys[KEY.RIGHT] = false;
+    pressedKeys[KEY.UP] = false;
+    pressedKeys[KEY.DOWN] = false;
+  };
+  
+  PointDevice.prototype.move = function(x, y)  {
+    if(this._touch) {
+      var change_in_x = x - this._touch_x;
+      var change_in_y = y - this._touch_y;
+      if ( Math.abs(change_in_x) > DRAG_TOLERANCE ) {
+        this._drag = true;
+        this.releaseKeys();
+        if( change_in_x > 0 ) {
+          pressedKeys[KEY.RIGHT] = true;
+        } else {
+          pressedKeys[KEY.LEFT] = true;
+        }
+      } else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
+        this._drag = true;
+        this.releaseKeys();
+        if( change_in_y > 0 ) {
+          pressedKeys[KEY.DOWN] = true;
+        } else {
+          pressedKeys[KEY.UP] = true;
+        }
+      }
+    }
+  };
+  
+  PointDevice.prototype.stop = function() {
+    if( !this._drag ){
+      // click
+      this.releaseKeys();
+    }
+    this._touch_x = 0;
+    this._touch_y = 0;
+    this._touch = false;
+    this._drag = false;
+  };
+  
+  return PointDevice;
+})();
+
 function init(){
 	ctx = document.getElementById('canvas').getContext('2d');
+  point = new PointDevice();
   player = new PlayerObject();
 	player.setImage(TXS.TYSON);
 					
@@ -306,10 +384,20 @@ function moveandcheck(){
 
 window.addEventListener('keydown', function(event) {
 	pressedKeys[event.keyCode] = true;
-}, 
-false);
+}, false);
 
 window.addEventListener('keyup', function(event) {
 	 pressedKeys[event.keyCode] = false;
-}, 
-false);
+}, false);
+
+window.addEventListener('mousedown', function(event) {
+  point.point(event.clientX, event.clientY);
+}, false);
+
+window.addEventListener('mouseup', function(event) {
+  point.stop();
+}, false);
+
+window.addEventListener('mousemove', function(event) {
+  point.move(event.clientX, event.clientY);
+}, false);
