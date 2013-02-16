@@ -314,6 +314,30 @@ var PointDevice = (function() {
     }
   };
   
+  PointDevice.prototype.moved = function(x, y)  {
+    if(this._touch) {
+      var change_in_x = x;
+      var change_in_y = y;
+      if ( Math.abs(change_in_x) > DRAG_TOLERANCE ) {
+        this._drag = true;
+        this.releaseKeys();
+        if( change_in_x > 0 ) {
+          pressedKeys[KEY.RIGHT] = true;
+        } else {
+          pressedKeys[KEY.LEFT] = true;
+        }
+      } else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
+        this._drag = true;
+        this.releaseKeys();
+        if( change_in_y > 0 ) {
+          pressedKeys[KEY.DOWN] = true;
+        } else {
+          pressedKeys[KEY.UP] = true;
+        }
+      }
+    }
+  };
+  
   PointDevice.prototype.stop = function() {
     if( !this._drag ){
       // click
@@ -382,22 +406,32 @@ function moveandcheck(){
 	player.movement();	
 };
 
+// keys
 window.addEventListener('keydown', function(event) {
 	pressedKeys[event.keyCode] = true;
 }, false);
-
 window.addEventListener('keyup', function(event) {
 	 pressedKeys[event.keyCode] = false;
 }, false);
 
+// mouse
 window.addEventListener('mousedown', function(event) {
   point.point(event.clientX, event.clientY);
 }, false);
-
 window.addEventListener('mouseup', function(event) {
   point.stop();
 }, false);
-
 window.addEventListener('mousemove', function(event) {
   point.move(event.clientX, event.clientY);
+}, false);
+
+// touch
+window.addEventListener('touchend', function(event) {
+  point.stop();
+}, false);
+window.addEventListener('touchstart', function(event) {
+  point.point(event.event.touches[0].pageX, event.touches[0].pageY);
+}, false);
+window.addEventListener('touchmove', function(event) {
+  point.move(event.event.touches[0].pageX, event.touches[0].pageY);
 }, false);
