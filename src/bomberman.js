@@ -66,11 +66,11 @@ var KEY = {
 
 // variables
 var SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH)/2);
-var SCROLL_MAX_X = MAP_WIDTH * BLOCK_WIDTH + OFFSET_X * 2 - SCROLL_MIN_X * 2 - BLOCK_WIDTH;
+var SCROLL_MAX_X = MAP_WIDTH * BLOCK_WIDTH + OFFSET_X * 2 - CANVAS_WIDTH;
 var SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_WIDTH)/2);
-var SCROLL_MAX_Y = MAP_HEIGHT * BLOCK_WIDTH + OFFSET_Y * 2 - SCROLL_MIN_Y * 2 - BLOCK_WIDTH;
-var CAN_SCROLL_X = SCROLL_MAX_X > SCROLL_MIN_X;
-var CAN_SCROLL_Y = SCROLL_MAX_Y > SCROLL_MIN_Y;
+var SCROLL_MAX_Y = MAP_HEIGHT * BLOCK_WIDTH + OFFSET_Y - CANVAS_HEIGHT;
+var CAN_SCROLL_X = SCROLL_MIN_X > 0;
+var CAN_SCROLL_Y = SCROLL_MIN_Y > 0;
 var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_WIDTH + OFFSET_Y;
 var grid = new Array();
@@ -418,7 +418,7 @@ function gameloop(){
 };
 
 function draw(){
-	ctx.clearRect(0, 0 , BLOCK_WIDTH * MAP_WIDTH, BLOCK_WIDTH * CANVAS_HEIGHT);
+	ctx.clearRect(0, 0 , CANVAS_WIDTH, CANVAS_HEIGHT);
 	for (x=0; x<MAP_WIDTH; x++){
 		for (y=0; y < MAP_HEIGHT; y++){
 			grid[x][y].draw(ctx);
