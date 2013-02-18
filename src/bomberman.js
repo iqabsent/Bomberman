@@ -1,20 +1,54 @@
 // constants
 var CANVAS_WIDTH = 600;
-var CANVAS_HEIGHT = 400;
+var CANVAS_HEIGHT = 520;
 var DEFAULT_MOVEMENT_SPEED = 2;
 var PLAYER_MOVEMENT_SPEED = 2;
 var BLOCK_WIDTH = 35;
 var MAP_WIDTH = 25;
-var MAP_HEIGHT = 9;
-var OFFSET_X = 5;
-var OFFSET_Y = 35;
+var MAP_HEIGHT = 13;
+var OFFSET_X = 0;
+var OFFSET_Y = 65;
 var DRAG_TOLERANCE = 35;
 
 // enums / flags
 var TXS = {
   BRICK: "images/brick.png",
 	PERMA: "images/permabrick.jpg",
-	TYSON: "images/miketyson.jpg"
+	BOMBERMAN: "images/bomberman_down2.gif"
+};
+
+var DEATHSCROLL = {
+  ONE: "images/bomberman_man_death1.gif",
+  TWO: "images/bomberman_man_death2.gif",
+  THREE: "images/bomberman_man_death3.gif",
+  FOUR: "images/bomberman_man_death4.gif",
+  FIVE: "images/bomberman_man_death5.gif",
+  SIX: "images/bomberman_man_death6.gif",
+  SEVEN: "images/bomberman_man_death7.gif"
+};
+
+var BOMBERMAN_LEFT = {
+  ONE: "images/bomberman_left1.gif",
+  TWO: "images/bomberman_left2.gif",
+  THREE: "images/bomberman_left3.gif"  
+};
+
+var BOMBERMAN_RIGHT = {
+  ONE: "images/bomberman_right1.gif",
+  TWO: "images/bomberman_right2.gif",
+  THREE: "images/bomberman_right3.gif"  
+};
+
+var BOMBERMAN_UP = {
+  ONE: "images/bomberman_up1.gif",
+  TWO: "images/bomberman_up2.gif",
+  THREE: "images/bomberman_up3.gif"  
+};
+
+var BOMBERMAN_DOWN = {
+  ONE: "images/bomberman_down1.gif",
+  TWO: "images/bomberman_down2.gif",
+  THREE: "images/bomberman_down3.gif"  
 };
 var TYPE = {
 	NOTHING: 0,
@@ -46,6 +80,9 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
+var count = 1;
+var frame = 1;
+
 
 var GameObject = (function() {
   // "private" variables 
@@ -336,11 +373,13 @@ var PointDevice = (function() {
   return PointDevice;
 })();
 
+
+
 function init(){
 	ctx = document.getElementById('canvas').getContext('2d');
   point = new PointDevice();
   player = new PlayerObject();
-	player.setImage(TXS.TYSON);
+	player.setImage(TXS.BOMBERMAN);
 					
 	for (x=0; x<MAP_WIDTH; x++){
 		grid[x]= new Array();
@@ -369,6 +408,8 @@ function init(){
 		}	
 	}
 	setInterval(gameloop,33.33);
+  setInterval(playerimage, 400);
+  setInterval(playermove, 100);
 };
 	
 function gameloop(){
@@ -377,7 +418,7 @@ function gameloop(){
 };
 
 function draw(){
-	ctx.clearRect(0, 0 , BLOCK_WIDTH * MAP_WIDTH, BLOCK_WIDTH * MAP_HEIGHT);
+	ctx.clearRect(0, 0 , BLOCK_WIDTH * MAP_WIDTH, BLOCK_WIDTH * CANVAS_HEIGHT);
 	for (x=0; x<MAP_WIDTH; x++){
 		for (y=0; y < MAP_HEIGHT; y++){
 			grid[x][y].draw(ctx);
@@ -388,6 +429,141 @@ function draw(){
 
 function moveandcheck(){
 	player.movement();	
+};
+
+function playerimage(){
+ if (pressedKeys[KEY.W]) playdeath();
+ 
+};
+
+function playermove(){
+ playermoveleft();
+ playermoveright();
+ playermoveup();
+ playermovedown();
+ };
+
+function playdeath(){
+  count++;
+  switch (count){
+    case 1: 
+      player.setImage(DEATHSCROLL.ONE);
+      break;
+    case 2: 
+      player.setImage(DEATHSCROLL.TWO);
+      break;
+    case 3: 
+      player.setImage(DEATHSCROLL.THREE);
+      break;
+    case 4: 
+      player.setImage(DEATHSCROLL.FOUR);
+      break;
+    case 5: 
+      player.setImage(DEATHSCROLL.FIVE);
+      break;
+    case 6: 
+      player.setImage(DEATHSCROLL.SIX);
+      break;
+    case 7: 
+      player.setImage(DEATHSCROLL.SEVEN);
+      break;
+    default:
+      player.setImage(TXS.BOMBERMAN);
+      count = 1;
+  };
+};
+
+function playermoveleft(){
+    
+  if (pressedKeys[KEY.LEFT]) {
+    switch (frame){
+      case 1: 
+        player.setImage(BOMBERMAN_LEFT.ONE);
+        frame++;
+        break;
+      case 2: 
+        player.setImage(BOMBERMAN_LEFT.TWO);
+        frame++;
+        break;
+      case 3: 
+        player.setImage(BOMBERMAN_LEFT.THREE);
+        frame++;
+        
+        break;
+      case 4: 
+        player.setImage(BOMBERMAN_LEFT.TWO);
+        frame = 1
+      break;
+      
+    };
+  };
+};
+function playermoveright(){
+  if (pressedKeys[KEY.RIGHT]){
+    switch (frame){
+      case 1: 
+        player.setImage(BOMBERMAN_RIGHT.ONE);
+        frame++;
+        break;
+      case 2: 
+        player.setImage(BOMBERMAN_RIGHT.TWO);
+        frame++;
+        break;
+      case 3: 
+        player.setImage(BOMBERMAN_RIGHT.THREE);
+        frame++;
+        break;
+      case 4: 
+        player.setImage(BOMBERMAN_RIGHT.TWO);
+        frame = 1;
+        break;    
+    };
+  };
+};
+function playermovedown(){
+  if (pressedKeys[KEY.DOWN]) {
+    switch (frame){
+      case 1: 
+        player.setImage(BOMBERMAN_DOWN.ONE);
+        frame++;
+        break;
+      case 2: 
+        player.setImage(BOMBERMAN_DOWN.TWO);
+        frame++;
+        break;
+      case 3: 
+        player.setImage(BOMBERMAN_DOWN.THREE);
+        frame++;
+        break;
+      case 4: 
+        player.setImage(BOMBERMAN_DOWN.TWO);
+        frame=1;
+        break;      
+    };
+  };
+};
+
+function playermoveup(){
+  if (pressedKeys[KEY.UP]) {
+    switch (frame){
+      case 1: 
+        player.setImage(BOMBERMAN_UP.ONE);
+        frame++;
+        break;
+      case 2: 
+        player.setImage(BOMBERMAN_UP.TWO);
+        frame++;
+        break;
+      case 3: 
+        player.setImage(BOMBERMAN_UP.THREE);
+        frame++;
+        break;
+      case 4: 
+        player.setImage(BOMBERMAN_UP.TWO);
+        frame=1
+        break;
+    };
+  };
 };
 
 // keys
@@ -416,3 +592,5 @@ window.addEventListener('touchend', function(event) {
 window.addEventListener('touchmove', function(event) {
   point.moved(event.touches[0].pageX, event.touches[0].pageY);
 }, false);
+
+
