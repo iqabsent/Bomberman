@@ -9,12 +9,16 @@ var MAP_HEIGHT = 13;
 var OFFSET_X = 0;
 var OFFSET_Y = 65;
 var DRAG_TOLERANCE = 35;
+var BOOM_TIME = 5000;
+var MAX_BOMBS = 10;
 
 // enums / flags
 var TXS = {
   BRICK: "images/brick.png",
 	PERMA: "images/permabrick.jpg",
-	BOMBERMAN: "images/bomberman_down2.gif"
+	BOMBERMAN: "images/bomberman_down2.gif",
+  BOMB: "images/miketyson.jpg",
+  BOMB_EXPLODE: "images/girl.jpg"
 };
 
 var DEATHSCROLL = {
@@ -53,7 +57,8 @@ var BOMBERMAN_DOWN = {
 var TYPE = {
 	NOTHING: 0,
 	PASSABLE: 1,
-	SOMETHING: 2
+	SOMETHING: 2,
+  BOMB: 4
 };
 var KEY = {
 	UP: 38,
@@ -74,10 +79,13 @@ var CAN_SCROLL_Y = SCROLL_MIN_Y > 0;
 var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_WIDTH + OFFSET_Y;
 var grid = new Array();
+var bombs = new Array();
+var triggers = new Array();
 var pressedKeys = [];
 var point;
 var player;
-var density = 2;
+var bomb;
+var density = 3;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
 var count = 1;
@@ -296,13 +304,76 @@ var PlayerObject = (function() {
 		if (pressedKeys[KEY.DOWN]) this._direction_y++;
 		if (pressedKeys[KEY.LEFT]) this._direction_x--;
 		if (pressedKeys[KEY.RIGHT])this._direction_x++;
-    
+    if (pressedKeys[KEY.S]) {
+      pressedKeys[KEY.S] = false;
+      
+			//grid[this._grid_x][this._grid_y].setType(TYPE.BOMB);
+      
+      for (i = 0; i < bombs.length; i++) {
+        if(!bombs[i].isEnabled()) {
+          bombs[i].setGridPosition(this._grid_x, this._grid_y);
+          bombs[i].enable();
+          grid[this._grid_x][this._grid_y] = bombs[i];
+          break;
+        }
+      }
+    };
 		this.physics();
 	};
 	
 	return PlayerObject;
 })();
 
+var BombObject = (function() {
+  var _timer;
+	var _enabled;
+  var _grid_x;
+  var _grid_y;
+  
+	function BombObject(){
+    this.setImage(TXS.BOMB);	
+    _enabled = false;
+	};
+		
+	var super_class = new GameObject();
+	BombObject.prototype = super_class;
+  
+  BombObject.prototype.enable = function(){
+    this._enabled = true;
+    this.startTimer(); // shoud check for power up to manually detonate
+  };
+  
+  BombObject.prototype.setGridPosition = function(grid_x, grid_y){
+  this._grid_x = grid_x;
+  this._grid_y = grid_y;
+  
+    this.setPosition(OFFSET_X +(grid_x * BLOCK_WIDTH), OFFSET_Y +(grid_y * BLOCK_WIDTH));
+  };
+  
+  BombObject.prototype.isEnabled = function(){
+    return this._enabled;
+  };
+  
+  BombObject.prototype.stopTimer = function(){
+    clearTimeout(this._timer);
+  };
+  
+  BombObject.prototype.startTimer = function(){
+    var this_index = bombs.indexOf(this);
+    this._timer = setTimeout("bombs["+this_index+"].boom()", BOOM_TIME);
+  };
+  
+  BombObject.prototype.boom = function(){
+    console.log(this._timer);
+    console.log(this);
+    this.setImage(TXS.BOMB);	
+    grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
+    
+    this._enabled = false;
+  };
+  
+  return BombObject;
+})();
 
 var PointDevice = (function() {
   var _touch, _drag;
@@ -373,14 +444,16 @@ var PointDevice = (function() {
   return PointDevice;
 })();
 
-
-
 function init(){
 	ctx = document.getElementById('canvas').getContext('2d');
   point = new PointDevice();
   player = new PlayerObject();
 	player.setImage(TXS.BOMBERMAN);
-					
+  
+  for (i = 0; i < MAX_BOMBS; i++) {
+    bombs.push(new BombObject());
+  }
+
 	for (x=0; x<MAP_WIDTH; x++){
 		grid[x]= new Array();
 		for (y=0; y < MAP_HEIGHT; y++){
@@ -388,7 +461,7 @@ function init(){
 			grid[x][y].setPosition(OFFSET_X +(x * BLOCK_WIDTH), OFFSET_Y +(y * BLOCK_WIDTH));
 			//generate permanent cubes
 			if (x==0 || y==0 || x==MAP_WIDTH-1 || y==MAP_HEIGHT-1 || (x%2 == 0 && y%2 == 0 )) {
-			    grid[x][y].setImage(TXS.PERMA);
+			  grid[x][y].setImage(TXS.PERMA);
 				grid[x][y].setType(TYPE.SOMETHING);
 			} else {
 				// keep starting position, grid block (1,1) open
@@ -424,6 +497,10 @@ function draw(){
 			grid[x][y].draw(ctx);
 		}
 	}
+  for (i=0; i< bombs.length; i++){
+    bombs[i].draw(ctx);
+  }
+  
 	player.draw(ctx);
 };
 
