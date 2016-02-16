@@ -14,51 +14,51 @@ var MAX_BOMBS = 10;
 
 // enums / flags
 var TXS = {
-  BRICK: "images/brick.png",
+	BRICK: "images/brick.png",
 	PERMA: "images/permabrick.jpg",
 	BOMBERMAN: "images/bomberman_down2.gif",
-  BOMB: "images/miketyson.jpg",
-  BOMB_EXPLODE: "images/girl.jpg"
+	BOMB: "images/miketyson.jpg",
+	BOMB_EXPLODE: "images/girl.jpg"
 };
 
 var DEATHSCROLL = {
-  ONE: "images/bomberman_man_death1.gif",
-  TWO: "images/bomberman_man_death2.gif",
-  THREE: "images/bomberman_man_death3.gif",
-  FOUR: "images/bomberman_man_death4.gif",
-  FIVE: "images/bomberman_man_death5.gif",
-  SIX: "images/bomberman_man_death6.gif",
-  SEVEN: "images/bomberman_man_death7.gif"
+	ONE: "images/bomberman_man_death1.gif",
+	TWO: "images/bomberman_man_death2.gif",
+	THREE: "images/bomberman_man_death3.gif",
+	FOUR: "images/bomberman_man_death4.gif",
+	FIVE: "images/bomberman_man_death5.gif",
+	SIX: "images/bomberman_man_death6.gif",
+	SEVEN: "images/bomberman_man_death7.gif"
 };
 
 var BOMBERMAN_LEFT = {
-  ONE: "images/bomberman_left1.gif",
-  TWO: "images/bomberman_left2.gif",
-  THREE: "images/bomberman_left3.gif"  
+	ONE: "images/bomberman_left1.gif",
+	TWO: "images/bomberman_left2.gif",
+	THREE: "images/bomberman_left3.gif"  
 };
 
 var BOMBERMAN_RIGHT = {
-  ONE: "images/bomberman_right1.gif",
-  TWO: "images/bomberman_right2.gif",
-  THREE: "images/bomberman_right3.gif"  
+	ONE: "images/bomberman_right1.gif",
+	TWO: "images/bomberman_right2.gif",
+	THREE: "images/bomberman_right3.gif"  
 };
 
 var BOMBERMAN_UP = {
-  ONE: "images/bomberman_up1.gif",
-  TWO: "images/bomberman_up2.gif",
-  THREE: "images/bomberman_up3.gif"  
+	ONE: "images/bomberman_up1.gif",
+	TWO: "images/bomberman_up2.gif",
+	THREE: "images/bomberman_up3.gif"  
 };
 
 var BOMBERMAN_DOWN = {
-  ONE: "images/bomberman_down1.gif",
-  TWO: "images/bomberman_down2.gif",
-  THREE: "images/bomberman_down3.gif"  
+	ONE: "images/bomberman_down1.gif",
+	TWO: "images/bomberman_down2.gif",
+	THREE: "images/bomberman_down3.gif"  
 };
 var TYPE = {
 	NOTHING: 0,
 	PASSABLE: 1,
 	SOMETHING: 2,
-  BOMB: 4
+	BOMB: 4
 };
 var KEY = {
 	UP: 38,
@@ -93,32 +93,32 @@ var frame = 1;
 
 
 var GameObject = (function() {
-  // "private" variables 
-  var _x;
+	// "private" variables 
+	var _x;
 	var _y;
 	var _width;
 	var _height;
 	var _image;
 	var _type;
 	
-  // constructor
-  function GameObject(){
-    this._image = new Image();
-    this._type = TYPE.NOTHING;
-    this._width = BLOCK_WIDTH;
-    this._height = BLOCK_WIDTH;
+	// constructor
+	function GameObject(){
+		this._image = new Image();
+		this._type = TYPE.NOTHING;
+		this._width = BLOCK_WIDTH;
+		this._height = BLOCK_WIDTH;
 	};
 	
-  // add the methods to the prototype so that all of the 
-  // GameObject instances can access the private static
+	// add the methods to the prototype so that all of the 
+	// GameObject instances can access the private static
 
-  GameObject.prototype.getImage = function() {
-    return this._image;
-  };
-	
-  GameObject.prototype.setImage = function(file_name) {
-    this._image.src = file_name;
-  };
+	GameObject.prototype.getImage = function() {
+		return this._image;
+	};
+
+	GameObject.prototype.setImage = function(file_name) {
+		this._image.src = file_name;
+	};
 	
 	GameObject.prototype.setSize = function(size) {
 		this._width = size;
@@ -136,11 +136,11 @@ var GameObject = (function() {
 	
 	GameObject.prototype.draw = function(ctx) {	
 		if (this._image.src)
-			ctx.drawImage(
-        this._image, this._x - scroll_offset_x,
-        this._y - scroll_offset_y,
-        this._width, this._height
-      );
+		ctx.drawImage(
+			this._image, this._x - scroll_offset_x,
+			this._y - scroll_offset_y,
+			this._width, this._height
+		);
 	};
 	
 	GameObject.prototype.setType = function(type){
@@ -249,45 +249,45 @@ var PlayerObject = (function() {
     var error_y = 0;
     var grid_position = grid[this._grid_x][this._grid_y].getPosition();
     if(this._direction_x) {
-      error_y = grid_position.y - this._y;
-      if(error_y) {
-        if(Math.abs(error_y) > this._movement_speed ) {
-          if(error_y < 0) {
-            error_y = -this._movement_speed;
-          } else {
-            error_y = this._movement_speed;
-          }
-        }
-      }
+		error_y = grid_position.y - this._y;
+		if(error_y) {
+			if(Math.abs(error_y) > this._movement_speed ) {
+				if(error_y < 0) {
+					error_y = -this._movement_speed;
+				} else {
+					error_y = this._movement_speed;
+				}
+			}
+		}
     } else if(this._direction_y) {
-      error_x = grid_position.x - this._x;
-      if(error_x) {
-        if(Math.abs(error_x) > this._movement_speed ) {
-          if(error_x < 0) {
-            error_x = -this._movement_speed;
-          } else {
-            error_x = this._movement_speed;
-          }
-        }
-      }
+		error_x = grid_position.x - this._x;
+		if(error_x) {
+			if(Math.abs(error_x) > this._movement_speed ) {
+				if(error_x < 0) {
+					error_x = -this._movement_speed;
+				} else {
+					error_x = this._movement_speed;
+				}
+			}
+		}
     }
   
     // do scrolling stuff
     if(CAN_SCROLL_X && (this._direction_x || error_x)) {
-      // moving horizontally
-      scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
-      
-      if(scroll_offset_x < 0) scroll_offset_x = 0;
-      if(scroll_offset_x > SCROLL_MAX_X)
-        scroll_offset_x = SCROLL_MAX_X;
+		// moving horizontally
+		scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
+
+		if(scroll_offset_x < 0) scroll_offset_x = 0;
+		if(scroll_offset_x > SCROLL_MAX_X)
+			scroll_offset_x = SCROLL_MAX_X;
     }
     if(CAN_SCROLL_Y && (this._direction_y || error_y)) {
-      // moving horizontally
-      scroll_offset_y = this._y + this._movement_speed * this._direction_y - SCROLL_MIN_Y + error_y;
-   
-      if(scroll_offset_y < 0) scroll_offset_y = 0;
-      if(scroll_offset_y > SCROLL_MAX_Y)
-        scroll_offset_y = SCROLL_MAX_Y;
+		// moving horizontally
+		scroll_offset_y = this._y + this._movement_speed * this._direction_y - SCROLL_MIN_Y + error_y;
+
+		if(scroll_offset_y < 0) scroll_offset_y = 0;
+		if(scroll_offset_y > SCROLL_MAX_Y)
+			scroll_offset_y = SCROLL_MAX_Y;
     }
 
     // do the usual stuff in move();
@@ -304,20 +304,20 @@ var PlayerObject = (function() {
 		if (pressedKeys[KEY.DOWN]) this._direction_y++;
 		if (pressedKeys[KEY.LEFT]) this._direction_x--;
 		if (pressedKeys[KEY.RIGHT])this._direction_x++;
-    if (pressedKeys[KEY.S]) {
-      pressedKeys[KEY.S] = false;
-      
+		if (pressedKeys[KEY.S]) {
+			pressedKeys[KEY.S] = false;
+		  
 			//grid[this._grid_x][this._grid_y].setType(TYPE.BOMB);
-      
-      for (i = 0; i < bombs.length; i++) {
-        if(!bombs[i].isEnabled()) {
-          bombs[i].setGridPosition(this._grid_x, this._grid_y);
-          bombs[i].enable();
-          grid[this._grid_x][this._grid_y] = bombs[i];
-          break;
-        }
-      }
-    };
+		  
+			for (i = 0; i < bombs.length; i++) {
+				if(!bombs[i].isEnabled()) {
+					bombs[i].setGridPosition(this._grid_x, this._grid_y);
+					bombs[i].enable();
+					grid[this._grid_x][this._grid_y] = bombs[i];
+					break;
+				}
+			}
+		};
 		this.physics();
 	};
 	
@@ -325,134 +325,134 @@ var PlayerObject = (function() {
 })();
 
 var BombObject = (function() {
-  var _timer;
+	var _timer;
 	var _enabled;
-  var _grid_x;
-  var _grid_y;
+	var _grid_x;
+	var _grid_y;
   
 	function BombObject(){
-    this.setImage(TXS.BOMB);	
-    _enabled = false;
+		this.setImage(TXS.BOMB);	
+		_enabled = false;
 	};
 		
 	var super_class = new GameObject();
 	BombObject.prototype = super_class;
   
-  BombObject.prototype.enable = function(){
-    this._enabled = true;
-    this.startTimer(); // shoud check for power up to manually detonate
-  };
+	BombObject.prototype.enable = function(){
+		this._enabled = true;
+		this.startTimer(); // shoud check for power up to manually detonate
+	};
   
-  BombObject.prototype.setGridPosition = function(grid_x, grid_y){
-  this._grid_x = grid_x;
-  this._grid_y = grid_y;
+	BombObject.prototype.setGridPosition = function(grid_x, grid_y){
+		this._grid_x = grid_x;
+		this._grid_y = grid_y;
+	  
+		this.setPosition(OFFSET_X +(grid_x * BLOCK_WIDTH), OFFSET_Y +(grid_y * BLOCK_WIDTH));
+	};
   
-    this.setPosition(OFFSET_X +(grid_x * BLOCK_WIDTH), OFFSET_Y +(grid_y * BLOCK_WIDTH));
-  };
+	BombObject.prototype.isEnabled = function(){
+		return this._enabled;
+	};
   
-  BombObject.prototype.isEnabled = function(){
-    return this._enabled;
-  };
+	BombObject.prototype.stopTimer = function(){
+		clearTimeout(this._timer);
+	};
   
-  BombObject.prototype.stopTimer = function(){
-    clearTimeout(this._timer);
-  };
+	BombObject.prototype.startTimer = function(){
+		var this_index = bombs.indexOf(this);
+		this._timer = setTimeout("bombs["+this_index+"].boom()", BOOM_TIME);
+	};
   
-  BombObject.prototype.startTimer = function(){
-    var this_index = bombs.indexOf(this);
-    this._timer = setTimeout("bombs["+this_index+"].boom()", BOOM_TIME);
-  };
+	BombObject.prototype.boom = function(){
+		console.log(this._timer);
+		console.log(this);
+		this.setImage(TXS.BOMB);	
+		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
+
+		this._enabled = false;
+	};
   
-  BombObject.prototype.boom = function(){
-    console.log(this._timer);
-    console.log(this);
-    this.setImage(TXS.BOMB);	
-    grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
-    
-    this._enabled = false;
-  };
-  
-  return BombObject;
+	return BombObject;
 })();
 
 var PointDevice = (function() {
-  var _touch, _drag;
-  var _last_x, _last_y;
+	var _touch, _drag;
+	var _last_x, _last_y;
   
 	function PointDevice(){
 		this._touch = false;
-    this._touch_x = 0;
-    this._touch_y = 0;
+		this._touch_x = 0;
+		this._touch_y = 0;
 	};
 
-  PointDevice.prototype.point = function(x, y) {
-    this._touch_x = x;
-    this._touch_y = y;
-    this._touch = true;
-  };
+	PointDevice.prototype.point = function(x, y) {
+		this._touch_x = x;
+		this._touch_y = y;
+		this._touch = true;
+	};
   
-  PointDevice.prototype.releaseKeys = function(x, y) {
-    pressedKeys[KEY.LEFT] = false;
-    pressedKeys[KEY.RIGHT] = false;
-    pressedKeys[KEY.UP] = false;
-    pressedKeys[KEY.DOWN] = false;
-  };
+	PointDevice.prototype.releaseKeys = function(x, y) {
+		pressedKeys[KEY.LEFT] = false;
+		pressedKeys[KEY.RIGHT] = false;
+		pressedKeys[KEY.UP] = false;
+		pressedKeys[KEY.DOWN] = false;
+	};
   
-  PointDevice.prototype.move = function(x, y)  {
-    if(this._touch) {
-      var change_in_x = x - this._touch_x;
-      var change_in_y = y - this._touch_y;
-      if ( Math.abs(change_in_x) > DRAG_TOLERANCE ) {
-        this._drag = true;
-        this.releaseKeys();
-        if( change_in_x > 0 ) {
-          pressedKeys[KEY.RIGHT] = true;
-        } else {
-          pressedKeys[KEY.LEFT] = true;
-        }
-      } else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
-        this._drag = true;
-        this.releaseKeys();
-        if( change_in_y > 0 ) {
-          pressedKeys[KEY.DOWN] = true;
-        } else {
-          pressedKeys[KEY.UP] = true;
-        }
-      }
-    }
-  };
+	PointDevice.prototype.move = function(x, y)  {
+		if(this._touch) {
+			var change_in_x = x - this._touch_x;
+			var change_in_y = y - this._touch_y;
+			if ( Math.abs(change_in_x) > DRAG_TOLERANCE ) {
+				this._drag = true;
+				this.releaseKeys();
+				if( change_in_x > 0 ) {
+					pressedKeys[KEY.RIGHT] = true;
+				} else {
+					pressedKeys[KEY.LEFT] = true;
+				}
+			} else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
+				this._drag = true;
+				this.releaseKeys();
+				if( change_in_y > 0 ) {
+					pressedKeys[KEY.DOWN] = true;
+				} else {
+					pressedKeys[KEY.UP] = true;
+				}
+			}
+		}
+	};
   
-  PointDevice.prototype.moved = function(x, y)  {
-    if(!this._touch) {
-      this.point(x, y);
-    } else {
-      this.move(x, y);
-    }
-  };
+	PointDevice.prototype.moved = function(x, y)  {
+		if(!this._touch) {
+			this.point(x, y);
+		} else {
+			this.move(x, y);
+		}
+	};
   
-  PointDevice.prototype.stop = function() {
-    if( !this._drag ){
-      // click
-      this.releaseKeys();
-    }
-    this._touch_x = 0;
-    this._touch_y = 0;
-    this._touch = false;
-    this._drag = false;
-  };
+	PointDevice.prototype.stop = function() {
+		if( !this._drag ){
+			// click
+			this.releaseKeys();
+		}
+		this._touch_x = 0;
+		this._touch_y = 0;
+		this._touch = false;
+		this._drag = false;
+	};
   
-  return PointDevice;
+	return PointDevice;
 })();
 
 function init(){
 	ctx = document.getElementById('canvas').getContext('2d');
-  point = new PointDevice();
-  player = new PlayerObject();
+	point = new PointDevice();
+	player = new PlayerObject();
 	player.setImage(TXS.BOMBERMAN);
   
-  for (i = 0; i < MAX_BOMBS; i++) {
-    bombs.push(new BombObject());
-  }
+	for (i = 0; i < MAX_BOMBS; i++) {
+		bombs.push(new BombObject());
+	}
 
 	for (x=0; x<MAP_WIDTH; x++){
 		grid[x]= new Array();
@@ -461,7 +461,7 @@ function init(){
 			grid[x][y].setPosition(OFFSET_X +(x * BLOCK_WIDTH), OFFSET_Y +(y * BLOCK_WIDTH));
 			//generate permanent cubes
 			if (x==0 || y==0 || x==MAP_WIDTH-1 || y==MAP_HEIGHT-1 || (x%2 == 0 && y%2 == 0 )) {
-			  grid[x][y].setImage(TXS.PERMA);
+				grid[x][y].setImage(TXS.PERMA);
 				grid[x][y].setType(TYPE.SOMETHING);
 			} else {
 				// keep starting position, grid block (1,1) open
@@ -481,8 +481,8 @@ function init(){
 		}	
 	}
 	setInterval(gameloop,33.33);
-  setInterval(playerimage, 400);
-  setInterval(playermove, 100);
+	setInterval(playerimage, 400);
+	setInterval(playermove, 100);
 };
 	
 function gameloop(){
@@ -497,9 +497,9 @@ function draw(){
 			grid[x][y].draw(ctx);
 		}
 	}
-  for (i=0; i< bombs.length; i++){
-    bombs[i].draw(ctx);
-  }
+	for (i=0; i< bombs.length; i++){
+		bombs[i].draw(ctx);
+	}
   
 	player.draw(ctx);
 };
@@ -509,138 +509,134 @@ function moveandcheck(){
 };
 
 function playerimage(){
- if (pressedKeys[KEY.W]) playdeath();
- 
+	if (pressedKeys[KEY.W]) playdeath();
 };
 
 function playermove(){
- playermoveleft();
- playermoveright();
- playermoveup();
- playermovedown();
- };
+	playermoveleft();
+	playermoveright();
+	playermoveup();
+	playermovedown();
+};
 
 function playdeath(){
-  count++;
-  switch (count){
-    case 1: 
-      player.setImage(DEATHSCROLL.ONE);
-      break;
-    case 2: 
-      player.setImage(DEATHSCROLL.TWO);
-      break;
-    case 3: 
-      player.setImage(DEATHSCROLL.THREE);
-      break;
-    case 4: 
-      player.setImage(DEATHSCROLL.FOUR);
-      break;
-    case 5: 
-      player.setImage(DEATHSCROLL.FIVE);
-      break;
-    case 6: 
-      player.setImage(DEATHSCROLL.SIX);
-      break;
-    case 7: 
-      player.setImage(DEATHSCROLL.SEVEN);
-      break;
-    default:
-      player.setImage(TXS.BOMBERMAN);
-      count = 1;
-  };
+	count++;
+	switch (count){
+		case 1: 
+			player.setImage(DEATHSCROLL.ONE);
+			break;
+		case 2: 
+			player.setImage(DEATHSCROLL.TWO);
+			break;
+		case 3: 
+			player.setImage(DEATHSCROLL.THREE);
+			break;
+		case 4: 
+			player.setImage(DEATHSCROLL.FOUR);
+			break;
+		case 5: 
+			player.setImage(DEATHSCROLL.FIVE);
+			break;
+		case 6: 
+			player.setImage(DEATHSCROLL.SIX);
+			break;
+		case 7: 
+			player.setImage(DEATHSCROLL.SEVEN);
+			break;
+		default:
+			player.setImage(TXS.BOMBERMAN);
+			count = 1;
+	};
 };
 
-function playermoveleft(){
-    
-  if (pressedKeys[KEY.LEFT]) {
-    switch (frame){
-      case 1: 
-        player.setImage(BOMBERMAN_LEFT.ONE);
-        frame++;
-        break;
-      case 2: 
-        player.setImage(BOMBERMAN_LEFT.TWO);
-        frame++;
-        break;
-      case 3: 
-        player.setImage(BOMBERMAN_LEFT.THREE);
-        frame++;
-        
-        break;
-      case 4: 
-        player.setImage(BOMBERMAN_LEFT.TWO);
-        frame = 1
-      break;
-      
-    };
-  };
+function playermoveleft(){    
+	if (pressedKeys[KEY.LEFT]) {
+		switch (frame){
+			case 1: 
+				player.setImage(BOMBERMAN_LEFT.ONE);
+				frame++;
+				break;
+			case 2: 
+				player.setImage(BOMBERMAN_LEFT.TWO);
+				frame++;
+				break;
+			case 3: 
+				player.setImage(BOMBERMAN_LEFT.THREE);
+				frame++;
+				break;
+			case 4: 
+				player.setImage(BOMBERMAN_LEFT.TWO);
+				frame = 1
+				break;		  
+		};
+	};
 };
 function playermoveright(){
-  if (pressedKeys[KEY.RIGHT]){
-    switch (frame){
-      case 1: 
-        player.setImage(BOMBERMAN_RIGHT.ONE);
-        frame++;
-        break;
-      case 2: 
-        player.setImage(BOMBERMAN_RIGHT.TWO);
-        frame++;
-        break;
-      case 3: 
-        player.setImage(BOMBERMAN_RIGHT.THREE);
-        frame++;
-        break;
-      case 4: 
-        player.setImage(BOMBERMAN_RIGHT.TWO);
-        frame = 1;
-        break;    
-    };
-  };
+	if (pressedKeys[KEY.RIGHT]){
+		switch (frame){
+			case 1: 
+				player.setImage(BOMBERMAN_RIGHT.ONE);
+				frame++;
+				break;
+			case 2: 
+				player.setImage(BOMBERMAN_RIGHT.TWO);
+				frame++;
+				break;
+			case 3: 
+				player.setImage(BOMBERMAN_RIGHT.THREE);
+				frame++;
+				break;
+			case 4: 
+				player.setImage(BOMBERMAN_RIGHT.TWO);
+				frame = 1;
+				break;    
+			};
+	};
 };
 function playermovedown(){
-  if (pressedKeys[KEY.DOWN]) {
-    switch (frame){
-      case 1: 
-        player.setImage(BOMBERMAN_DOWN.ONE);
-        frame++;
-        break;
-      case 2: 
-        player.setImage(BOMBERMAN_DOWN.TWO);
-        frame++;
-        break;
-      case 3: 
-        player.setImage(BOMBERMAN_DOWN.THREE);
-        frame++;
-        break;
-      case 4: 
-        player.setImage(BOMBERMAN_DOWN.TWO);
-        frame=1;
-        break;      
-    };
-  };
+	if (pressedKeys[KEY.DOWN]) {
+		switch (frame){
+			case 1: 
+				player.setImage(BOMBERMAN_DOWN.ONE);
+				frame++;
+				break;
+			case 2: 
+				player.setImage(BOMBERMAN_DOWN.TWO);
+				frame++;
+				break;
+			case 3: 
+				player.setImage(BOMBERMAN_DOWN.THREE);
+				frame++;
+				break;
+			case 4: 
+				player.setImage(BOMBERMAN_DOWN.TWO);
+				frame=1;
+				break;      
+		};
+	};
 };
 
 function playermoveup(){
-  if (pressedKeys[KEY.UP]) {
-    switch (frame){
-      case 1: 
-        player.setImage(BOMBERMAN_UP.ONE);
-        frame++;
-        break;
-      case 2: 
-        player.setImage(BOMBERMAN_UP.TWO);
-        frame++;
-        break;
-      case 3: 
-        player.setImage(BOMBERMAN_UP.THREE);
-        frame++;
-        break;
-      case 4: 
-        player.setImage(BOMBERMAN_UP.TWO);
-        frame=1
-        break;
-    };
-  };
+	if (pressedKeys[KEY.UP]) {
+		switch (frame){
+			case 1: 
+				player.setImage(BOMBERMAN_UP.ONE);
+				frame++;
+				break;
+			case 2: 
+				player.setImage(BOMBERMAN_UP.TWO);
+				frame++;
+				break;
+			case 3: 
+				player.setImage(BOMBERMAN_UP.THREE);
+				frame++;
+				break;
+			case 4: 
+				player.setImage(BOMBERMAN_UP.TWO);
+				frame=1
+				break;
+		};
+	};
 };
 
 // keys
@@ -648,26 +644,24 @@ window.addEventListener('keydown', function(event) {
 	pressedKeys[event.keyCode] = true;
 }, false);
 window.addEventListener('keyup', function(event) {
-	 pressedKeys[event.keyCode] = false;
+	pressedKeys[event.keyCode] = false;
 }, false);
 
 // mouse
 window.addEventListener('mousedown', function(event) {
-  point.point(event.clientX, event.clientY);
+	point.point(event.clientX, event.clientY);
 }, false);
 window.addEventListener('mouseup', function(event) {
-  point.stop();
+	point.stop();
 }, false);
 window.addEventListener('mousemove', function(event) {
-  point.move(event.clientX, event.clientY);
+	point.move(event.clientX, event.clientY);
 }, false);
 
 // touch
 window.addEventListener('touchend', function(event) {
-  point.stop();
+	point.stop();
 }, false);
 window.addEventListener('touchmove', function(event) {
-  point.moved(event.touches[0].pageX, event.touches[0].pageY);
+	point.moved(event.touches[0].pageX, event.touches[0].pageY);
 }, false);
-
-
