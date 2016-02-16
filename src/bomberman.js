@@ -21,39 +21,39 @@ var TXS = {
 	BOMB_EXPLODE: "images/girl.jpg"
 };
 
-var DEATHSCROLL = {
-	ONE: "images/bomberman_man_death1.gif",
-	TWO: "images/bomberman_man_death2.gif",
-	THREE: "images/bomberman_man_death3.gif",
-	FOUR: "images/bomberman_man_death4.gif",
-	FIVE: "images/bomberman_man_death5.gif",
-	SIX: "images/bomberman_man_death6.gif",
-	SEVEN: "images/bomberman_man_death7.gif"
-};
+var DEATHSCROLL = [
+	"images/bomberman_man_death1.gif",
+	"images/bomberman_man_death2.gif",
+	"images/bomberman_man_death3.gif",
+	"images/bomberman_man_death4.gif",
+	"images/bomberman_man_death5.gif",
+	"images/bomberman_man_death6.gif",
+	"images/bomberman_man_death7.gif"
+];
 
-var BOMBERMAN_LEFT = {
-	ONE: "images/bomberman_left1.gif",
-	TWO: "images/bomberman_left2.gif",
-	THREE: "images/bomberman_left3.gif"  
-};
+var BOMBERMAN_LEFT = [
+	"images/bomberman_left1.gif",
+	"images/bomberman_left2.gif",
+	"images/bomberman_left3.gif"  
+];
 
-var BOMBERMAN_RIGHT = {
-	ONE: "images/bomberman_right1.gif",
-	TWO: "images/bomberman_right2.gif",
-	THREE: "images/bomberman_right3.gif"  
-};
+var BOMBERMAN_RIGHT = [
+	"images/bomberman_right1.gif",
+	"images/bomberman_right2.gif",
+	"images/bomberman_right3.gif"  
+];
 
-var BOMBERMAN_UP = {
-	ONE: "images/bomberman_up1.gif",
-	TWO: "images/bomberman_up2.gif",
-	THREE: "images/bomberman_up3.gif"  
-};
+var BOMBERMAN_UP = [
+	"images/bomberman_up1.gif",
+	"images/bomberman_up2.gif",
+	"images/bomberman_up3.gif"  
+];
 
-var BOMBERMAN_DOWN = {
-	ONE: "images/bomberman_down1.gif",
-	TWO: "images/bomberman_down2.gif",
-	THREE: "images/bomberman_down3.gif"  
-};
+var BOMBERMAN_DOWN = [
+	"images/bomberman_down1.gif",
+	"images/bomberman_down2.gif",
+	"images/bomberman_down3.gif"  
+];
 var TYPE = {
 	NOTHING: 0,
 	PASSABLE: 1,
@@ -520,122 +520,33 @@ function playermove(){
 };
 
 function playdeath(){
-	count++;
-	switch (count){
-		case 1: 
-			player.setImage(DEATHSCROLL.ONE);
-			break;
-		case 2: 
-			player.setImage(DEATHSCROLL.TWO);
-			break;
-		case 3: 
-			player.setImage(DEATHSCROLL.THREE);
-			break;
-		case 4: 
-			player.setImage(DEATHSCROLL.FOUR);
-			break;
-		case 5: 
-			player.setImage(DEATHSCROLL.FIVE);
-			break;
-		case 6: 
-			player.setImage(DEATHSCROLL.SIX);
-			break;
-		case 7: 
-			player.setImage(DEATHSCROLL.SEVEN);
-			break;
-		default:
-			player.setImage(TXS.BOMBERMAN);
-			count = 1;
-	};
+	player.setImage(DEATHSCROLL[count++] || TXS.BOMBERMAN);
 };
 
 function playermoveleft(){    
 	if (pressedKeys[KEY.LEFT]) {
-		switch (frame){
-			case 1: 
-				player.setImage(BOMBERMAN_LEFT.ONE);
-				frame++;
-				break;
-			case 2: 
-				player.setImage(BOMBERMAN_LEFT.TWO);
-				frame++;
-				break;
-			case 3: 
-				player.setImage(BOMBERMAN_LEFT.THREE);
-				frame++;
-				break;
-			case 4: 
-				player.setImage(BOMBERMAN_LEFT.TWO);
-				frame = 1
-				break;		  
-		};
+		frame = frame % BOMBERMAN_LEFT.length;
+		player.setImage(BOMBERMAN_LEFT[frame++]);
 	};
 };
 function playermoveright(){
 	if (pressedKeys[KEY.RIGHT]){
-		switch (frame){
-			case 1: 
-				player.setImage(BOMBERMAN_RIGHT.ONE);
-				frame++;
-				break;
-			case 2: 
-				player.setImage(BOMBERMAN_RIGHT.TWO);
-				frame++;
-				break;
-			case 3: 
-				player.setImage(BOMBERMAN_RIGHT.THREE);
-				frame++;
-				break;
-			case 4: 
-				player.setImage(BOMBERMAN_RIGHT.TWO);
-				frame = 1;
-				break;    
-			};
+		frame = frame % BOMBERMAN_RIGHT.length;
+		player.setImage(BOMBERMAN_RIGHT[frame++]);
 	};
 };
 function playermovedown(){
 	if (pressedKeys[KEY.DOWN]) {
-		switch (frame){
-			case 1: 
-				player.setImage(BOMBERMAN_DOWN.ONE);
-				frame++;
-				break;
-			case 2: 
-				player.setImage(BOMBERMAN_DOWN.TWO);
-				frame++;
-				break;
-			case 3: 
-				player.setImage(BOMBERMAN_DOWN.THREE);
-				frame++;
-				break;
-			case 4: 
-				player.setImage(BOMBERMAN_DOWN.TWO);
-				frame=1;
-				break;      
-		};
+		frame = frame % BOMBERMAN_DOWN.length;
+		console.log(BOMBERMAN_DOWN[frame]);
+		player.setImage(BOMBERMAN_DOWN[frame++]);
 	};
 };
 
 function playermoveup(){
 	if (pressedKeys[KEY.UP]) {
-		switch (frame){
-			case 1: 
-				player.setImage(BOMBERMAN_UP.ONE);
-				frame++;
-				break;
-			case 2: 
-				player.setImage(BOMBERMAN_UP.TWO);
-				frame++;
-				break;
-			case 3: 
-				player.setImage(BOMBERMAN_UP.THREE);
-				frame++;
-				break;
-			case 4: 
-				player.setImage(BOMBERMAN_UP.TWO);
-				frame=1
-				break;
-		};
+		frame = frame % BOMBERMAN_UP.length;
+		player.setImage(BOMBERMAN_UP[frame++]);
 	};
 };
 
