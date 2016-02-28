@@ -35,12 +35,12 @@ var ANI_DATA = {
 	MAN_DOWN:	{ prefix: "bbm_down", frames: 3, extension: "gif" },
 	MAN_LEFT:	{ prefix: "bbm_left", frames: 3, extension: "gif" },
 	MAN_RIGHT:	{ prefix: "bbm_right", frames: 3, extension: "gif" },
-	MAN_DEATH:	{ prefix: "bbm_death", frames: 7, extension: "gif" }
+	MAN_DEATH:	{ prefix: "bbm_death", frames: 7, extension: "gif" },
+	BOMB:		{ prefix: "bomb", frames: 3, extension: "gif" }
 };
 var IMG_DATA = {
 	BRICK: 'brick.png',
-	PERMA: 'permabrick.jpg',
-	BOMB: 'miketyson.jpg'
+	PERMA: 'permabrick.jpg'
 };
 
 // image and animation instances - populated on preload()
@@ -305,7 +305,7 @@ var BombObject = (function() {
 	var _grid_y;
   
 	function BombObject(){
-		this.setImage(IMG.BOMB);	
+		this.setImage(ANI.BOMB[0]);
 		_enabled = false;
 	};
 		
@@ -340,7 +340,7 @@ var BombObject = (function() {
 	BombObject.prototype.boom = function(){
 		console.log(this._timer);
 		console.log(this);
-		this.setImage(IMG.BOMB);	
+		this.setImage(ANI.BOMB[0]);
 		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
 
 		this._enabled = false;
@@ -497,7 +497,7 @@ function moveandcheck(){
 };
 
 function animate(){
-	// should be internal to moving gameobject
+	// should be internal to moving playerobject
 	if (pressedKeys[KEY.LEFT]) {
 		frame = frame % ANI['MAN_LEFT'].length;
 		player.setImage(ANI['MAN_LEFT'][frame++]);
