@@ -1,14 +1,15 @@
 // constants
 var CANVAS_WIDTH = 600;
-var CANVAS_HEIGHT = 520;
-var DEFAULT_MOVEMENT_SPEED = 2;
-var PLAYER_MOVEMENT_SPEED = 2;
-var BLOCK_WIDTH = 35;
+var CANVAS_HEIGHT = 403;
+var DEFAULT_MOVEMENT_SPEED = 2.5;
+var PLAYER_MOVEMENT_SPEED = 2.5;
+var BLOCK_WIDTH = 30;
+var BLOCK_HEIGHT = 26;
 var MAP_WIDTH = 25;
 var MAP_HEIGHT = 13;
 var OFFSET_X = 0;
 var OFFSET_Y = 65;
-var DRAG_TOLERANCE = 35;
+var DRAG_TOLERANCE = 30;
 var BOOM_TIME = 5000;
 var MAX_BOMBS = 10;
 
@@ -51,11 +52,11 @@ var IMG = {};
 var SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH)/2);
 var SCROLL_MAX_X = MAP_WIDTH * BLOCK_WIDTH + OFFSET_X * 2 - CANVAS_WIDTH;
 var SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_WIDTH)/2);
-var SCROLL_MAX_Y = MAP_HEIGHT * BLOCK_WIDTH + OFFSET_Y - CANVAS_HEIGHT;
+var SCROLL_MAX_Y = MAP_HEIGHT * BLOCK_HEIGHT + OFFSET_Y - CANVAS_HEIGHT;
 var CAN_SCROLL_X = SCROLL_MIN_X > 0;
 var CAN_SCROLL_Y = SCROLL_MIN_Y > 0;
 var start_x = BLOCK_WIDTH + OFFSET_X;
-var start_y = BLOCK_WIDTH + OFFSET_Y;
+var start_y = BLOCK_HEIGHT + OFFSET_Y;
 var grid = new Array();
 var bombs = new Array();
 var pressedKeys = [];
@@ -82,7 +83,7 @@ var GameObject = (function() {
 		this._image = new Image();
 		this._type = TYPE.NOTHING;
 		this._width = BLOCK_WIDTH;
-		this._height = BLOCK_WIDTH;
+		this._height = BLOCK_HEIGHT;
 	};
 	
 	// add the methods to the prototype so that all of the 
@@ -131,10 +132,57 @@ var GameObject = (function() {
 	
 })();
 
+var AnimatedObject = (function() {
+	var _animation; 
+	var _ticks_per_frame;
+	var _ticks;
+	var _frame;
+	var _should_animate;
+
+	function AnimatedObject(){
+		this._animation = null;
+		this._frame = 0;
+		this._ticks_per_frame = 0;
+		this._ticks = 0;
+		this._should_animate = false;
+	};
+	
+	var super_class = new GameObject();
+	AnimatedObject.prototype = super_class;
+	
+	AnimatedObject.prototype.setAnimation = function(animation) {
+		this._animation = animation;
+		this._frame = 0;
+		this._ticks = 0;
+		this.setImage(this._animation[frame]);
+	};
+	
+	AnimatedObject.prototype.animate = function() {
+		if(this._animation && this._should_animate) {
+			if(++this._ticks >= this._ticks_per_frame) {
+				this._ticks = 0;
+				if (++this._frame >= this._animation.length) {
+					this._frame = 0;
+				}
+				this.setImage(this._animation[this._frame]);
+			}
+		}
+	};
+	
+	return AnimatedObject;
+	
+})();
+
+// StatefulObject
+// - has finite number of known states
+// - each state has associated animation
+// IntelligentObject
+// - each state has associated behaviour
+
 var MovingObject = (function() {
 	var _movement_speed;
-	var _direction_x ;
-	var _direction_y ;
+	var _direction_x;
+	var _direction_y;
 	var _grid_x;
 	var	_grid_y;
 	
@@ -146,7 +194,7 @@ var MovingObject = (function() {
 		this._direction_y = 0;		
 	};
 		
-	var super_class = new GameObject();
+	var super_class = new AnimatedObject();
 	MovingObject.prototype = super_class;
 	
 	MovingObject.prototype.move = function() {
@@ -158,9 +206,9 @@ var MovingObject = (function() {
 	
 	MovingObject.prototype.collision = function(){	
 		var center_x = this._x + BLOCK_WIDTH/2;
-		var center_y = this._y + BLOCK_WIDTH/2;
+		var center_y = this._y + BLOCK_HEIGHT/2;
 		this._grid_x = Math.floor((center_x - OFFSET_X) / BLOCK_WIDTH);
-		this._grid_y = Math.floor((center_y - OFFSET_Y) / BLOCK_WIDTH);
+		this._grid_y = Math.floor((center_y - OFFSET_Y) / BLOCK_HEIGHT);
 		
 		if (this._direction_x){
 			this._direction_y = 0;
@@ -185,12 +233,12 @@ var MovingObject = (function() {
 			if (target.is(TYPE.PASSABLE) == 0){
 				if(this._direction_y < 0) {
 					//moving up
-					if(this._y - this._movement_speed < target.getPosition().y + BLOCK_WIDTH){
+					if(this._y - this._movement_speed < target.getPosition().y + BLOCK_HEIGHT){
 						this._direction_y = 0;
 					}					
 				} else {
 					//moving down
-					if(this._y + this._movement_speed > target.getPosition().y - BLOCK_WIDTH){
+					if(this._y + this._movement_speed > target.getPosition().y - BLOCK_HEIGHT){
 						this._direction_y = 0;
 					};
 				}
@@ -212,6 +260,8 @@ var PlayerObject = (function() {
 		this._x = start_x;
 		this._y = start_y;
 		this._movement_speed = PLAYER_MOVEMENT_SPEED;
+		this.setImage(ANI.MAN_DOWN[1]);
+		this._ticks_per_frame = 1;
 	};
 		
 	var super_class = new MovingObject();
@@ -220,53 +270,54 @@ var PlayerObject = (function() {
 	// overriding player move function to do scrolling and alignment stuff
 	PlayerObject.prototype.move = function() {
   
-    // align player with grid
-    var error_x = 0;
-    var error_y = 0;
-    var grid_position = grid[this._grid_x][this._grid_y].getPosition();
-    if(this._direction_x) {
-		error_y = grid_position.y - this._y;
-		if(error_y) {
-			if(Math.abs(error_y) > this._movement_speed ) {
-				if(error_y < 0) {
-					error_y = -this._movement_speed;
-				} else {
-					error_y = this._movement_speed;
+		// align player with grid
+		var error_x = 0;
+		var error_y = 0;
+		var grid_position = grid[this._grid_x][this._grid_y].getPosition();
+		if(this._direction_x) {
+			error_y = grid_position.y - this._y;
+			if(error_y) {
+				if(Math.abs(error_y) > this._movement_speed ) {
+					if(error_y < 0) {
+						error_y = -this._movement_speed;
+					} else {
+						error_y = this._movement_speed;
+					}
+				}
+			}
+		} else if(this._direction_y) {
+			error_x = grid_position.x - this._x;
+			if(error_x) {
+				if(Math.abs(error_x) > this._movement_speed ) {
+					if(error_x < 0) {
+						error_x = -this._movement_speed;
+					} else {
+						error_x = this._movement_speed;
+					}
 				}
 			}
 		}
-    } else if(this._direction_y) {
-		error_x = grid_position.x - this._x;
-		if(error_x) {
-			if(Math.abs(error_x) > this._movement_speed ) {
-				if(error_x < 0) {
-					error_x = -this._movement_speed;
-				} else {
-					error_x = this._movement_speed;
-				}
-			}
+	  
+		// do scrolling stuff
+		if(CAN_SCROLL_X && (this._direction_x || error_x)) {
+			// moving horizontally
+			scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
+
+			if(scroll_offset_x < 0) scroll_offset_x = 0;
+			if(scroll_offset_x > SCROLL_MAX_X)
+				scroll_offset_x = SCROLL_MAX_X;
 		}
-    }
-  
-    // do scrolling stuff
-    if(CAN_SCROLL_X && (this._direction_x || error_x)) {
-		// moving horizontally
-		scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
+	
+		if(CAN_SCROLL_Y && (this._direction_y || error_y)) {
+			// moving horizontally
+			scroll_offset_y = this._y + this._movement_speed * this._direction_y - SCROLL_MIN_Y + error_y;
 
-		if(scroll_offset_x < 0) scroll_offset_x = 0;
-		if(scroll_offset_x > SCROLL_MAX_X)
-			scroll_offset_x = SCROLL_MAX_X;
-    }
-    if(CAN_SCROLL_Y && (this._direction_y || error_y)) {
-		// moving horizontally
-		scroll_offset_y = this._y + this._movement_speed * this._direction_y - SCROLL_MIN_Y + error_y;
+			if(scroll_offset_y < 0) scroll_offset_y = 0;
+			if(scroll_offset_y > SCROLL_MAX_Y)
+				scroll_offset_y = SCROLL_MAX_Y;
+		}
 
-		if(scroll_offset_y < 0) scroll_offset_y = 0;
-		if(scroll_offset_y > SCROLL_MAX_Y)
-			scroll_offset_y = SCROLL_MAX_Y;
-    }
-
-    // do the usual stuff in move();
+		// do the usual stuff in move();
 		this.setPosition(
 			this._x+this._direction_x*this._movement_speed+error_x, 
 			this._y+this._direction_y*this._movement_speed+error_y
@@ -274,12 +325,48 @@ var PlayerObject = (function() {
 	};
   
 	PlayerObject.prototype.movement = function() {
-		this._direction_x = 0;
-		this._direction_y = 0;
-		if (pressedKeys[KEY.UP]) this._direction_y--; 
-		if (pressedKeys[KEY.DOWN]) this._direction_y++;
-		if (pressedKeys[KEY.LEFT]) this._direction_x--;
-		if (pressedKeys[KEY.RIGHT])this._direction_x++;
+		// todo .. react to key_pressed as opposed to key_held for setAnimation
+		if (!pressedKeys[KEY.UP]
+			&& !pressedKeys[KEY.DOWN]
+			&& !pressedKeys[KEY.LEFT]
+			&& !pressedKeys[KEY.RIGHT]) {
+			this._direction_x = 0;
+			this._direction_y = 0;
+			this._should_animate = false; 	// should _should_animate be public?
+											// should it have access functions?
+		}
+		if (pressedKeys[KEY.UP]) {
+			this._direction_x = 0;
+			if (this._direction_y != -1) {
+				this.setAnimation(ANI.MAN_UP);
+			}
+			this._direction_y = -1;
+			this._should_animate = true;
+		}
+		if (pressedKeys[KEY.DOWN]) {
+			this._direction_x = 0;
+			if (this._direction_y != 1) {
+				this.setAnimation(ANI.MAN_DOWN);
+			}
+			this._direction_y = 1;
+			this._should_animate = true;
+		}
+		if (pressedKeys[KEY.LEFT]) {
+			this._direction_y = 0;
+			if (this._direction_x != -1) {
+				this.setAnimation(ANI.MAN_LEFT);
+			}
+			this._direction_x = -1;
+			this._should_animate = true;
+		}
+		if (pressedKeys[KEY.RIGHT]) {
+			this._direction_y = 0;
+			if (this._direction_x != 1) {
+				this.setAnimation(ANI.MAN_RIGHT);
+			}
+			this._direction_x = 1;
+			this._should_animate = true;
+		}
 		if (pressedKeys[KEY.S]) {
 			pressedKeys[KEY.S] = false;
 		  
@@ -305,23 +392,31 @@ var BombObject = (function() {
 	var _grid_y;
   
 	function BombObject(){
-		this.setImage(ANI.BOMB[0]);
+		this.setAnimation(ANI.BOMB);
 		_enabled = false;
+		this._ticks_per_frame = 3;
 	};
 		
-	var super_class = new GameObject();
+	var super_class = new AnimatedObject();
 	BombObject.prototype = super_class;
   
 	BombObject.prototype.enable = function(){
 		this._enabled = true;
+		this._should_animate = true;
 		this.startTimer(); // should check for power up to manually detonate
+	};
+	
+	BombObject.prototype.disable = function(){
+		this._enabled = false;
+		this._should_animate = false;
+		this.stopTimer();
 	};
   
 	BombObject.prototype.setGridPosition = function(grid_x, grid_y){
 		this._grid_x = grid_x;
 		this._grid_y = grid_y;
 	  
-		this.setPosition(OFFSET_X +(grid_x * BLOCK_WIDTH), OFFSET_Y +(grid_y * BLOCK_WIDTH));
+		this.setPosition(OFFSET_X +(grid_x * BLOCK_WIDTH), OFFSET_Y +(grid_y * BLOCK_HEIGHT));
 	};
   
 	BombObject.prototype.isEnabled = function(){
@@ -338,12 +433,9 @@ var BombObject = (function() {
 	};
   
 	BombObject.prototype.boom = function(){
-		console.log(this._timer);
-		console.log(this);
 		this.setImage(ANI.BOMB[0]);
 		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
-
-		this._enabled = false;
+		this.disable();
 	};
   
 	return BombObject;
@@ -423,7 +515,6 @@ function init(){
 	ctx = document.getElementById('canvas').getContext('2d');
 	point = new PointDevice();
 	player = new PlayerObject();
-	player.setImage(ANI.MAN_DOWN[1]);
   
 	for (i = 0; i < MAX_BOMBS; i++) {
 		bombs.push(new BombObject());
@@ -433,7 +524,7 @@ function init(){
 		grid[x]= new Array();
 		for (y=0; y < MAP_HEIGHT; y++){
 			grid[x][y] = new GameObject();
-			grid[x][y].setPosition(OFFSET_X +(x * BLOCK_WIDTH), OFFSET_Y +(y * BLOCK_WIDTH));
+			grid[x][y].setPosition(OFFSET_X +(x * BLOCK_WIDTH), OFFSET_Y +(y * BLOCK_HEIGHT));
 			//generate permanent cubes
 			if (x==0 || y==0 || x==MAP_WIDTH-1 || y==MAP_HEIGHT-1 || (x%2 == 0 && y%2 == 0 )) {
 				grid[x][y].setImage(IMG.PERMA);
@@ -498,22 +589,14 @@ function moveandcheck(){
 
 function animate(){
 	// should be internal to moving playerobject
-	if (pressedKeys[KEY.LEFT]) {
-		frame = frame % ANI['MAN_LEFT'].length;
-		player.setImage(ANI['MAN_LEFT'][frame++]);
-	};
-	if (pressedKeys[KEY.RIGHT]){
-		frame = frame % ANI['MAN_RIGHT'].length;
-		player.setImage(ANI['MAN_RIGHT'][frame++]);
-	};
-	if (pressedKeys[KEY.DOWN]) {
-		frame = frame % ANI['MAN_DOWN'].length;
-		player.setImage(ANI['MAN_DOWN'][frame++]);
-	};
-	if (pressedKeys[KEY.UP]) {
-		frame = frame % ANI['MAN_UP'].length;
-		player.setImage(ANI['MAN_UP'][frame++]);
-	};
+	player.animate();
+	
+	// animate bombs
+	bombs.forEach(function (bomb) {
+		if(bomb.isEnabled()) {
+			bomb.animate();
+		}
+	});
 };
 
 // keys
