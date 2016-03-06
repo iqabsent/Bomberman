@@ -37,7 +37,7 @@ var ANI_DATA = {
 	MAN_LEFT:	{ prefix: "bbm_left", frames: 3, extension: "gif" },
 	MAN_RIGHT:	{ prefix: "bbm_right", frames: 3, extension: "gif" },
 	MAN_DEATH:	{ prefix: "bbm_death", frames: 7, extension: "gif" },
-	BOMB:		{ prefix: "bomb", frames: 3, extension: "gif" }
+	BOMB:		{ prefix: "bomb", frames: 4, extension: "gif" }
 };
 var IMG_DATA = {
 	BRICK: 'brick.png',
@@ -59,7 +59,8 @@ var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_HEIGHT + OFFSET_Y;
 var grid = new Array();
 var bombs = new Array();
-var pressedKeys = [];
+var key_press = [];
+var keys_down = [];
 var point;
 var player;
 var density = 2;
@@ -259,9 +260,9 @@ var PlayerObject = (function() {
 	function PlayerObject(){
 		this._x = start_x;
 		this._y = start_y;
-		this._movement_speed = PLAYER_MOVEMENT_SPEED;
+		this._movement_speed = 0;
 		this.setImage(ANI.MAN_DOWN[1]);
-		this._ticks_per_frame = 1;
+		this._ticks_per_frame = 3;
 	};
 		
 	var super_class = new MovingObject();
@@ -323,63 +324,59 @@ var PlayerObject = (function() {
 			this._y+this._direction_y*this._movement_speed+error_y
 		);
 	};
-  
-	PlayerObject.prototype.movement = function() {
-		// todo .. react to key_pressed as opposed to key_held for setAnimation
-		if (!pressedKeys[KEY.UP]
-			&& !pressedKeys[KEY.DOWN]
-			&& !pressedKeys[KEY.LEFT]
-			&& !pressedKeys[KEY.RIGHT]) {
-			this._direction_x = 0;
-			this._direction_y = 0;
-			this._should_animate = false; 	// should _should_animate be public?
-											// should it have access functions?
-		}
-		if (pressedKeys[KEY.UP]) {
-			this._direction_x = 0;
-			if (this._direction_y != -1) {
+   
+	PlayerObject.prototype.handleKeyPress = function (key_code) {
+		// set direction and animation animation
+		switch(key_code) {
+			case KEY.UP:
+				this._direction_x = 0;
+				this._direction_y = -1;
 				this.setAnimation(ANI.MAN_UP);
-			}
-			this._direction_y = -1;
-			this._should_animate = true;
-		}
-		if (pressedKeys[KEY.DOWN]) {
-			this._direction_x = 0;
-			if (this._direction_y != 1) {
+				break;
+			case KEY.DOWN:
+				this._direction_x = 0;
+				this._direction_y = 1;
 				this.setAnimation(ANI.MAN_DOWN);
-			}
-			this._direction_y = 1;
-			this._should_animate = true;
-		}
-		if (pressedKeys[KEY.LEFT]) {
-			this._direction_y = 0;
-			if (this._direction_x != -1) {
+				break;
+			case KEY.LEFT:
+				this._direction_x = -1;
+				this._direction_y = 0;
 				this.setAnimation(ANI.MAN_LEFT);
-			}
-			this._direction_x = -1;
-			this._should_animate = true;
-		}
-		if (pressedKeys[KEY.RIGHT]) {
-			this._direction_y = 0;
-			if (this._direction_x != 1) {
+				break;
+			case KEY.RIGHT:
+				this._direction_x = 1;
+				this._direction_y = 0;
 				this.setAnimation(ANI.MAN_RIGHT);
-			}
-			this._direction_x = 1;
-			this._should_animate = true;
+				break;
 		}
-		if (pressedKeys[KEY.S]) {
-			pressedKeys[KEY.S] = false;
-		  
+	};
+	
+	PlayerObject.prototype.handleKeysDown = function (keys_down) {
+		if (keys_down[KEY.UP]
+			|| keys_down[KEY.DOWN]
+			|| keys_down[KEY.LEFT]
+			|| keys_down[KEY.RIGHT]
+		) {
+			this._movement_speed = PLAYER_MOVEMENT_SPEED;
+			this._should_animate = true;
+		} else {
+			this._should_animate = false;
+			this._movement_speed = 0;
+		}
+		
+		if (keys_down[KEY.S]) {
+			keys_down[KEY.S] = false;
+			// plant bomb
 			for (i = 0; i < bombs.length; i++) {
 				if(!bombs[i].isEnabled()) {
+					// plant should be internal to bombObject
 					bombs[i].setGridPosition(this._grid_x, this._grid_y);
 					bombs[i].enable();
-					grid[this._grid_x][this._grid_y] = bombs[i];
+					//grid[this._grid_x][this._grid_y] = bombs[i];
 					break;
 				}
 			}
-		};
-		this.physics();
+		}	
 	};
 	
 	return PlayerObject;
@@ -394,7 +391,7 @@ var BombObject = (function() {
 	function BombObject(){
 		this.setAnimation(ANI.BOMB);
 		_enabled = false;
-		this._ticks_per_frame = 3;
+		this._ticks_per_frame = 9;
 	};
 		
 	var super_class = new AnimatedObject();
@@ -428,13 +425,12 @@ var BombObject = (function() {
 	};
   
 	BombObject.prototype.startTimer = function(){
-		var this_index = bombs.indexOf(this);
-		this._timer = setTimeout("bombs["+this_index+"].boom()", BOOM_TIME);
+		this._timer = setTimeout(this.explode.bind(this), BOOM_TIME);
 	};
   
-	BombObject.prototype.boom = function(){
+	BombObject.prototype.explode = function(){
 		this.setImage(ANI.BOMB[0]);
-		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
+		//grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
 		this.disable();
 	};
   
@@ -458,10 +454,7 @@ var PointDevice = (function() {
 	};
   
 	PointDevice.prototype.releaseKeys = function(x, y) {
-		pressedKeys[KEY.LEFT] = false;
-		pressedKeys[KEY.RIGHT] = false;
-		pressedKeys[KEY.UP] = false;
-		pressedKeys[KEY.DOWN] = false;
+		keys_down = [];
 	};
   
 	PointDevice.prototype.move = function(x, y)  {
@@ -472,17 +465,21 @@ var PointDevice = (function() {
 				this._drag = true;
 				this.releaseKeys();
 				if( change_in_x > 0 ) {
-					pressedKeys[KEY.RIGHT] = true;
+					keys_down[KEY.RIGHT] = true;
+					key_press[KEY.RIGHT] = true;
 				} else {
-					pressedKeys[KEY.LEFT] = true;
+					keys_down[KEY.LEFT] = true;
+					key_press[KEY.LEFT] = true;
 				}
 			} else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
 				this._drag = true;
 				this.releaseKeys();
 				if( change_in_y > 0 ) {
-					pressedKeys[KEY.DOWN] = true;
+					keys_down[KEY.DOWN] = true;
+					key_press[KEY.DOWN] = true;
 				} else {
-					pressedKeys[KEY.UP] = true;
+					keys_down[KEY.UP] = true;
+					key_press[KEY.UP] = true;
 				}
 			}
 		}
@@ -564,9 +561,31 @@ function preload() {
 };
 	
 function gameloop(){
-	moveandcheck();
-	if (!(time++ % 3)) animate();
+	handleInput(key_press, keys_down);
+	key_press = [];
+	physics();
+	animate();
 	draw();
+};
+
+function handleInput(key_press, keys_down) {
+	key_press.forEach(function (value, index) {
+		if (value) player.handleKeyPress(index);
+	});
+	player.handleKeysDown(keys_down);
+};
+
+function physics() {
+	player.physics();
+};
+
+function animate(){
+	player.animate();
+	bombs.forEach(function (bomb) {
+		if(bomb.isEnabled()) {
+			bomb.animate();
+		}
+	});
 };
 
 function draw(){
@@ -583,28 +602,23 @@ function draw(){
 	player.draw(ctx);
 };
 
-function moveandcheck(){
-	player.movement();
-};
-
-function animate(){
-	// should be internal to moving playerobject
-	player.animate();
-	
-	// animate bombs
-	bombs.forEach(function (bomb) {
-		if(bomb.isEnabled()) {
-			bomb.animate();
-		}
-	});
-};
-
 // keys
 window.addEventListener('keydown', function(event) {
-	pressedKeys[event.keyCode] = true;
+	// record only if key is not already in down state
+	if (!keys_down[event.keyCode]) {
+		key_press[event.keyCode] = true; // cleared every tick
+		keys_down[event.keyCode] = true;
+	}
 }, false);
 window.addEventListener('keyup', function(event) {
-	pressedKeys[event.keyCode] = false;
+	keys_down[event.keyCode] = false;
+	
+	// if movement key released, and another is down, switch
+	key_press[KEY.UP] = keys_down[KEY.UP];
+	key_press[KEY.DOWN] = keys_down[KEY.DOWN];
+	key_press[KEY.LEFT] = keys_down[KEY.LEFT];
+	key_press[KEY.RIGHT] = keys_down[KEY.RIGHT];
+	
 }, false);
 
 // mouse
