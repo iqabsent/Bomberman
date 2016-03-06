@@ -1,8 +1,8 @@
 // constants
 var CANVAS_WIDTH = 600;
 var CANVAS_HEIGHT = 403;
-var DEFAULT_MOVEMENT_SPEED = 2.5;
-var PLAYER_MOVEMENT_SPEED = 2.5;
+var DEFAULT_MOVEMENT_SPEED = 1.5;
+var PLAYER_MOVEMENT_SPEED = 1.5;
 var BLOCK_WIDTH = 30;
 var BLOCK_HEIGHT = 26;
 var MAP_WIDTH = 25;
@@ -262,7 +262,7 @@ var PlayerObject = (function() {
 		this._y = start_y;
 		this._movement_speed = 0;
 		this.setImage(ANI.MAN_DOWN[1]);
-		this._ticks_per_frame = 3;
+		this._ticks_per_frame = 6;
 	};
 		
 	var super_class = new MovingObject();
@@ -391,7 +391,7 @@ var BombObject = (function() {
 	function BombObject(){
 		this.setAnimation(ANI.BOMB);
 		_enabled = false;
-		this._ticks_per_frame = 9;
+		this._ticks_per_frame = 18;
 	};
 		
 	var super_class = new AnimatedObject();
@@ -543,7 +543,8 @@ function init(){
 			}
 		}	
 	}
-	setInterval(gameloop,33.33);
+	
+	gameloop(); // kick off loop; uses requestAnimationFrame
 };
 
 function preload() {
@@ -565,6 +566,7 @@ function gameloop(){
 	key_press = [];
 	physics();
 	animate();
+	window.requestAnimationFrame(gameloop);
 	draw();
 };
 
