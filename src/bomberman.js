@@ -12,6 +12,8 @@ var OFFSET_Y = 65;
 var DRAG_TOLERANCE = 30;
 var BOOM_TIME = 5000;
 var MAX_BOMBS = 10;
+var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
+var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 
 // enums / flags
 var TYPE = {
@@ -49,9 +51,9 @@ var ANI = {};
 var IMG = {};
 
 // variables
-var SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH)/2);
+var SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH) * 0.5);
 var SCROLL_MAX_X = MAP_WIDTH * BLOCK_WIDTH + OFFSET_X * 2 - CANVAS_WIDTH;
-var SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_WIDTH)/2);
+var SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_WIDTH) * 0.5);
 var SCROLL_MAX_Y = MAP_HEIGHT * BLOCK_HEIGHT + OFFSET_Y - CANVAS_HEIGHT;
 var CAN_SCROLL_X = SCROLL_MIN_X > 0;
 var CAN_SCROLL_Y = SCROLL_MIN_Y > 0;
@@ -200,22 +202,23 @@ var MovingObject = (function() {
 	
 	MovingObject.prototype.move = function() {
 		this.setPosition(
-			this._x+this._direction_x*this._movement_speed, 
-			this._y+this._direction_y*this._movement_speed
+			this._x + this._direction_x * this._movement_speed, 
+			this._y + this._direction_y * this._movement_speed
 		);
 	};
 	
 	MovingObject.prototype.collision = function(){	
-		var center_x = this._x + BLOCK_WIDTH/2;
-		var center_y = this._y + BLOCK_HEIGHT/2;
-		this._grid_x = Math.floor((center_x - OFFSET_X) / BLOCK_WIDTH);
-		this._grid_y = Math.floor((center_y - OFFSET_Y) / BLOCK_HEIGHT);
+		var center_x = this._x + BLOCK_WIDTH * 0.5;
+		var center_y = this._y + BLOCK_HEIGHT * 0.5;
+		this._grid_x = Math.floor((center_x - OFFSET_X) * ONE_OVER_BLOCK_WIDTH);
+		this._grid_y = Math.floor((center_y - OFFSET_Y) * ONE_OVER_BLOCK_HEIGHT);
 		
-		if (this._direction_x){
-			this._direction_y = 0;
-			var target_x = this._grid_x + this._direction_x;
-			var target = grid[target_x][this._grid_y];
-			if (target.is(TYPE.PASSABLE) == 0){
+		var target = grid
+			[this._grid_x + this._direction_x]
+			[this._grid_y + this._direction_y];
+		
+		if(!target.is(TYPE.PASSABLE)) {
+			if (this._direction_x){
 				if(this._direction_x < 0) {
 					//moving left
 					if(this._x - this._movement_speed < target.getPosition().x + BLOCK_WIDTH){
@@ -227,11 +230,7 @@ var MovingObject = (function() {
 						this._direction_x = 0;
 					};
 				}
-			}
-		} else if (this._direction_y){
-			var target_y = this._grid_y + this._direction_y;
-			var target = grid[this._grid_x][target_y];
-			if (target.is(TYPE.PASSABLE) == 0){
+			} else if (this._direction_y){
 				if(this._direction_y < 0) {
 					//moving up
 					if(this._y - this._movement_speed < target.getPosition().y + BLOCK_HEIGHT){
@@ -243,7 +242,7 @@ var MovingObject = (function() {
 						this._direction_y = 0;
 					};
 				}
-			}
+			}	
 		}
 	};
 	
@@ -320,8 +319,8 @@ var PlayerObject = (function() {
 
 		// do the usual stuff in move();
 		this.setPosition(
-			this._x+this._direction_x*this._movement_speed+error_x, 
-			this._y+this._direction_y*this._movement_speed+error_y
+			this._x+this._direction_x * this._movement_speed + error_x, 
+			this._y+this._direction_y * this._movement_speed + error_y
 		);
 	};
    
@@ -385,12 +384,13 @@ var PlayerObject = (function() {
 var BombObject = (function() {
 	var _timer;
 	var _enabled;
+	var _yield;
 	var _grid_x;
 	var _grid_y;
   
 	function BombObject(){
 		this.setAnimation(ANI.BOMB);
-		_enabled = false;
+		this._enabled = false;
 		this._ticks_per_frame = 18;
 	};
 		
@@ -413,7 +413,7 @@ var BombObject = (function() {
 		this._grid_x = grid_x;
 		this._grid_y = grid_y;
 	  
-		this.setPosition(OFFSET_X +(grid_x * BLOCK_WIDTH), OFFSET_Y +(grid_y * BLOCK_HEIGHT));
+		this.setPosition(OFFSET_X + (grid_x * BLOCK_WIDTH), OFFSET_Y + (grid_y * BLOCK_HEIGHT));
 	};
   
 	BombObject.prototype.isEnabled = function(){
@@ -521,20 +521,20 @@ function init(){
 		grid[x]= new Array();
 		for (y=0; y < MAP_HEIGHT; y++){
 			grid[x][y] = new GameObject();
-			grid[x][y].setPosition(OFFSET_X +(x * BLOCK_WIDTH), OFFSET_Y +(y * BLOCK_HEIGHT));
+			grid[x][y].setPosition(OFFSET_X + (x * BLOCK_WIDTH), OFFSET_Y + (y * BLOCK_HEIGHT));
 			//generate permanent cubes
 			if (x==0 || y==0 || x==MAP_WIDTH-1 || y==MAP_HEIGHT-1 || (x%2 == 0 && y%2 == 0 )) {
 				grid[x][y].setImage(IMG.PERMA);
 				grid[x][y].setType(TYPE.SOMETHING);
 			} else {
 				// keep starting position, grid block (1,1) open
-				if (x+y<4){	
+				if (x + y < 4){	
 					grid[x][y].setType(TYPE.PASSABLE);
 					continue
 				}; 
 				
 				//generate destructible blocks
-				if (Math.random()*10 < density){
+				if (Math.random() * 10 < density){
 					grid[x][y].setImage(IMG.BRICK);
 					grid[x][y].setType(TYPE.SOMETHING);
 				} else {
@@ -592,12 +592,12 @@ function animate(){
 
 function draw(){
 	ctx.clearRect(0, 0 , CANVAS_WIDTH, CANVAS_HEIGHT);
-	for (x=0; x<MAP_WIDTH; x++){
-		for (y=0; y < MAP_HEIGHT; y++){
+	for (x = 0; x < MAP_WIDTH; x++){
+		for (y = 0; y < MAP_HEIGHT; y++){
 			grid[x][y].draw(ctx);
 		}
 	}
-	for (i=0; i< bombs.length; i++){
+	for (i = 0; i < bombs.length; i++){
 		bombs[i].draw(ctx);
 	}
   
