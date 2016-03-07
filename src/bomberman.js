@@ -218,31 +218,8 @@ var MovingObject = (function() {
 			[this._grid_y + this._direction_y];
 		
 		if(!target.is(TYPE.PASSABLE)) {
-			if (this._direction_x){
-				if(this._direction_x < 0) {
-					//moving left
-					if(this._x - this._movement_speed < target.getPosition().x + BLOCK_WIDTH){
-						this._direction_x = 0;
-					}					
-				} else {
-					//moving right
-					if(this._x + this._movement_speed > target.getPosition().x - BLOCK_WIDTH){
-						this._direction_x = 0;
-					};
-				}
-			} else if (this._direction_y){
-				if(this._direction_y < 0) {
-					//moving up
-					if(this._y - this._movement_speed < target.getPosition().y + BLOCK_HEIGHT){
-						this._direction_y = 0;
-					}					
-				} else {
-					//moving down
-					if(this._y + this._movement_speed > target.getPosition().y - BLOCK_HEIGHT){
-						this._direction_y = 0;
-					};
-				}
-			}	
+			if (Math.abs(this._x + this._movement_speed * this._direction_x - target.getPosition().x) < BLOCK_WIDTH) this._direction_x = 0;
+			if (Math.abs(this._y + this._movement_speed * this._direction_y - target.getPosition().y) < BLOCK_HEIGHT) this._direction_y = 0;
 		}
 	};
 	
