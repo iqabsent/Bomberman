@@ -154,6 +154,7 @@ var AnimatedObject = (function() {
 	AnimatedObject.prototype = super_class;
 	
 	AnimatedObject.prototype.setAnimation = function(animation) {
+		if (this._animation == animation) return;
 		this._animation = animation;
 		this._frame = 0;
 		this._ticks = 0;
