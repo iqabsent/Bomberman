@@ -127,6 +127,16 @@ var GameObject = (function() {
 		this._type = type;
 	};
 	
+	//GameObject.prototype.addType = function(type){
+	//	if (this._type & type) return;
+	//	this._type += type;
+	//};
+	
+	//GameObject.prototype.removeType = function(type){
+	//	if (!this._type & type) return;
+	//	this._type -= type;
+	//};
+	
 	GameObject.prototype.is = function(type){
 		return this._type & type;		
 	};
@@ -346,10 +356,7 @@ var PlayerObject = (function() {
 			// plant bomb
 			for (i = 0; i < bombs.length; i++) {
 				if(!bombs[i].isEnabled()) {
-					// plant should be internal to bombObject
-					bombs[i].setGridPosition(this._grid_x, this._grid_y);
-					bombs[i].enable();
-					//grid[this._grid_x][this._grid_y] = bombs[i];
+					bombs[i].plant(this._grid_x, this._grid_y);
 					break;
 				}
 			}
@@ -406,10 +413,16 @@ var BombObject = (function() {
 		this._timer = setTimeout(this.explode.bind(this), BOOM_TIME);
 	};
   
+	BombObject.prototype.plant = function(grid_x, grid_y){
+		this.setGridPosition(grid_x, grid_y);
+		this.enable();
+		grid[grid_x][grid_y].setType(TYPE.BOMB);
+	};
+	
 	BombObject.prototype.explode = function(){
-		this.setImage(ANI.BOMB[0]);
-		//grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
 		this.disable();
+		this.setImage(IMG.NOTHING);
+		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
 	};
   
 	return BombObject;
@@ -536,7 +549,8 @@ function preload() {
 	Object.keys(IMG_DATA).forEach(function (key) {
 		IMG[key] = new Image();
 		IMG[key].src = ASSET_PATH + IMG_DATA[key];
-	})
+	});
+	IMG.NOTHING = new Image();
 };
 	
 function gameloop(){
