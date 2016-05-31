@@ -223,14 +223,14 @@ var MovingObject = (function() {
 		var center_y = this._y + BLOCK_HEIGHT * 0.5;
 		this._grid_x = Math.floor((center_x - OFFSET_X) * ONE_OVER_BLOCK_WIDTH);
 		this._grid_y = Math.floor((center_y - OFFSET_Y) * ONE_OVER_BLOCK_HEIGHT);
-		
+
 		var target = grid
 			[this._grid_x + this._direction_x]
 			[this._grid_y + this._direction_y];
 		
 		if(!target.is(TYPE.PASSABLE)) {
-			if (Math.abs(this._x + this._movement_speed * this._direction_x - target.getPosition().x) < BLOCK_WIDTH) this._direction_x = 0;
-			if (Math.abs(this._y + this._movement_speed * this._direction_y - target.getPosition().y) < BLOCK_HEIGHT) this._direction_y = 0;
+			if (this._direction_x && Math.abs(this._x + this._movement_speed * this._direction_x - target.getPosition().x) < BLOCK_WIDTH) this._movement_speed = 0;
+			if (this._direction_y && Math.abs(this._y + this._movement_speed * this._direction_y - target.getPosition().y) < BLOCK_HEIGHT) this._movement_speed = 0;
 		}
 	};
 	
