@@ -20,7 +20,8 @@ var TYPE = {
 	NOTHING: 0,
 	PASSABLE: 1,
 	SOMETHING: 2,
-	BOMB: 4
+	BOMB: 4,
+	EXPLOSION: 8
 };
 var KEY = {
 	UP: 38,
@@ -39,7 +40,14 @@ var ANI_DATA = {
 	MAN_LEFT:	{ prefix: "bbm_left", frames: 3, extension: "gif" },
 	MAN_RIGHT:	{ prefix: "bbm_right", frames: 3, extension: "gif" },
 	MAN_DEATH:	{ prefix: "bbm_death", frames: 7, extension: "gif" },
-	BOMB:		{ prefix: "bomb", frames: 4, extension: "gif" }
+	BOMB:		{ prefix: "bomb", frames: 4, extension: "gif" },
+	EXPLO_C:	{ prefix: "e_c", frames: 4, extension: "gif", symmetric: true },
+	EXPLO_T:	{ prefix: "e_t", frames: 4, extension: "gif", symmetric: true },
+	EXPLO_B:	{ prefix: "e_b", frames: 4, extension: "gif", symmetric: true },
+	EXPLO_L:	{ prefix: "e_l", frames: 4, extension: "gif", symmetric: true },
+	EXPLO_R:	{ prefix: "e_r", frames: 4, extension: "gif", symmetric: true },
+	EXPLO_H:	{ prefix: "e_h", frames: 4, extension: "gif", symmetric: true },
+	EXPLO_V:	{ prefix: "e_v", frames: 4, extension: "gif", symmetric: true }
 };
 var IMG_DATA = {
 	BRICK: 'brick.png',
@@ -61,6 +69,7 @@ var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_HEIGHT + OFFSET_Y;
 var grid = new Array();
 var bombs = new Array();
+var explosions = new Array();
 var key_press = [];
 var keys_down = [];
 var point;
@@ -158,17 +167,19 @@ var AnimatedObject = (function() {
 		this._ticks_per_frame = 0;
 		this._ticks = 0;
 		this._should_animate = false;
+		this._loop = true;
 	};
 	
 	var super_class = new GameObject();
 	AnimatedObject.prototype = super_class;
 	
-	AnimatedObject.prototype.setAnimation = function(animation) {
+	AnimatedObject.prototype.setAnimation = function(animation, stop_at_end) {
 		if (this._animation == animation) return;
 		this._animation = animation;
+		this._loop = !stop_at_end;
 		this._frame = 0;
 		this._ticks = 0;
-		this.setImage(this._animation[frame]);
+		this.setImage(this._animation[this._frame]);
 	};
 	
 	AnimatedObject.prototype.animate = function() {
@@ -176,11 +187,21 @@ var AnimatedObject = (function() {
 			if(++this._ticks >= this._ticks_per_frame) {
 				this._ticks = 0;
 				if (++this._frame >= this._animation.length) {
-					this._frame = 0;
+					if(this._loop) {
+						this._frame = 0;
+					} else {
+						this.end();
+					}
 				}
 				this.setImage(this._animation[this._frame]);
 			}
 		}
+		return this._should_animate; // to detect ended animations
+	};
+	
+	AnimatedObject.prototype.end = function() {
+		this._should_animate = false;
+		this.setImage(new Image());
 	};
 	
 	return AnimatedObject;
@@ -192,6 +213,59 @@ var AnimatedObject = (function() {
 // - each state has associated animation
 // IntelligentObject
 // - each state has associated behaviour
+
+var Explosion = (function() {
+	var _grid_x = 0;
+	var _grid_y = 0;
+	var _radius = 1;
+	var _flames = new Array(); // TODO: all of these 'private' vars are moot
+	
+	function Explosion(grid_x, grid_y, radius){
+		this._grid_x = grid_x;
+		this._grid_y = grid_y;
+		this._radius = radius;
+		this._flames = new Array();
+		
+		// this needs to be wrapped in a FlameObject ?
+		var position = grid[grid_x][grid_y].getPosition();
+		var flame = new AnimatedObject();
+		flame.setPosition(position.x, position.y);
+		flame.setAnimation(ANI.EXPLO_C, true);
+		flame._should_animate = true; //ACCESSING PRIVATE PROPERTIES O_O
+		flame._frame = 0;
+		flame._ticks_per_frame = 12;
+		this._flames.push(flame);
+		// for each direction
+		// within radius
+		// check wall hits
+		// - stop on perma
+		// - stop and burn on brick
+		// spawn flames as animated objects
+		// add to array
+	};
+	
+	Explosion.prototype.animate = function () {
+		for (var i = 0; i < this._flames.length; i++) {
+			if(!this._flames[i].animate()) {
+				this.end();
+				break;
+			}
+		}
+	};
+	
+	Explosion.prototype.draw = function (ctx) {
+		for (var i = 0; i < this._flames.length; i++) {
+			this._flames[i].draw(ctx);
+		}
+	};
+	
+	Explosion.prototype.end = function () {
+		this._flames = [];
+		explosions.splice(explosions.indexOf(this),1);
+	};
+	
+	return Explosion;
+})();
 
 var MovingObject = (function() {
 	var _movement_speed;
@@ -353,13 +427,14 @@ var PlayerObject = (function() {
 		
 		if (keys_down[KEY.S]) {
 			keys_down[KEY.S] = false;
+			explosions.push(new Explosion(this._grid_x, this._grid_y));
 			// plant bomb
-			for (i = 0; i < bombs.length; i++) {
-				if(!bombs[i].isEnabled()) {
-					bombs[i].plant(this._grid_x, this._grid_y);
-					break;
-				}
-			}
+			//for (i = 0; i < bombs.length; i++) {
+			//	if(!bombs[i].isEnabled()) {
+			//		bombs[i].plant(this._grid_x, this._grid_y);
+			//		break;
+			//	}
+			//}
 		}	
 	};
 	
@@ -545,6 +620,12 @@ function preload() {
 			ANI[key].push(new Image());
 			ANI[key][ANI[key].length - 1].src = ASSET_PATH + ANI_DATA[key].prefix + frame + '.' + ANI_DATA[key].extension;
 		}
+		if (ANI_DATA[key].symmetric) {
+			for (var frame = ANI_DATA[key].frames - 2; frame >= 0; frame--) {
+				ANI[key].push(new Image());
+				ANI[key][ANI[key].length - 1].src = ASSET_PATH + ANI_DATA[key].prefix + frame + '.' + ANI_DATA[key].extension;
+			}
+		}
 	});
 	Object.keys(IMG_DATA).forEach(function (key) {
 		IMG[key] = new Image();
@@ -580,6 +661,9 @@ function animate(){
 			bomb.animate();
 		}
 	});
+	explosions.forEach(function (explosion) {
+		explosion.animate();
+	});
 };
 
 function draw(){
@@ -591,6 +675,9 @@ function draw(){
 	}
 	for (i = 0; i < bombs.length; i++){
 		bombs[i].draw(ctx);
+	}
+	for (i = 0; i < explosions.length; i++){
+		explosions[i].draw(ctx);
 	}
   
 	player.draw(ctx);
