@@ -10,7 +10,7 @@ var MAP_HEIGHT = 13;
 var OFFSET_X = 0;
 var OFFSET_Y = 65;
 var DRAG_TOLERANCE = 30;
-var BOOM_TIME = 5000;
+var BOOM_TIME = 2600;
 var MAX_BOMBS = 10;
 var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
 var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
@@ -214,6 +214,22 @@ var AnimatedObject = (function() {
 // IntelligentObject
 // - each state has associated behaviour
 
+var FlameObject = (function () {
+	function FlameObject(grid_x, grid_y, type) {
+		var position = grid[grid_x][grid_y].getPosition();
+		this.setPosition(position.x, position.y);
+		this.setAnimation(ANI['EXPLO_' + type], true);
+		this._frame = 0;
+		this._ticks_per_frame = 6;
+		this._should_animate = true;
+	};
+	
+	var super_class = new AnimatedObject();
+	FlameObject.prototype = super_class;
+	
+	return FlameObject;
+})();
+
 var Explosion = (function() {
 	var _grid_x = 0;
 	var _grid_y = 0;
@@ -227,14 +243,7 @@ var Explosion = (function() {
 		this._flames = new Array();
 		
 		// this needs to be wrapped in a FlameObject ?
-		var position = grid[grid_x][grid_y].getPosition();
-		var flame = new AnimatedObject();
-		flame.setPosition(position.x, position.y);
-		flame.setAnimation(ANI.EXPLO_C, true);
-		flame._should_animate = true; //ACCESSING PRIVATE PROPERTIES O_O
-		flame._frame = 0;
-		flame._ticks_per_frame = 12;
-		this._flames.push(flame);
+		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
 		// for each direction
 		// within radius
 		// check wall hits
@@ -427,14 +436,13 @@ var PlayerObject = (function() {
 		
 		if (keys_down[KEY.S]) {
 			keys_down[KEY.S] = false;
-			explosions.push(new Explosion(this._grid_x, this._grid_y));
 			// plant bomb
-			//for (i = 0; i < bombs.length; i++) {
-			//	if(!bombs[i].isEnabled()) {
-			//		bombs[i].plant(this._grid_x, this._grid_y);
-			//		break;
-			//	}
-			//}
+			for (i = 0; i < bombs.length; i++) {
+				if(!bombs[i].isEnabled()) {
+					bombs[i].plant(this._grid_x, this._grid_y);
+					break;
+				}
+			}
 		}	
 	};
 	
@@ -459,6 +467,7 @@ var BombObject = (function() {
   
 	BombObject.prototype.enable = function(){
 		this._enabled = true;
+		this._frame = 0;
 		this._should_animate = true;
 		this.startTimer(); // should check for power up to manually detonate
 	};
@@ -498,6 +507,7 @@ var BombObject = (function() {
 		this.disable();
 		this.setImage(IMG.NOTHING);
 		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
+		explosions.push(new Explosion(this._grid_x, this._grid_y));
 	};
   
 	return BombObject;
