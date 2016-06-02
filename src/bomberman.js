@@ -19,9 +19,10 @@ var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var TYPE = {
 	NOTHING: 0,
 	PASSABLE: 1,
-	SOMETHING: 2,
-	BOMB: 4,
-	EXPLOSION: 8
+	BRICK: 2,
+	PERMA: 4,
+	BOMB: 8,
+	EXPLOSION: 16
 };
 var KEY = {
 	UP: 38,
@@ -77,29 +78,19 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
+var yield = 2;
 
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
 
 var GameObject = (function() {
-	// "private" variables 
-	var _x;
-	var _y;
-	var _width;
-	var _height;
-	var _image;
-	var _type;
-	
-	// constructor
+
 	function GameObject(){
 		this._image = new Image();
 		this._type = TYPE.NOTHING;
 		this._width = BLOCK_WIDTH;
 		this._height = BLOCK_HEIGHT;
 	};
-	
-	// add the methods to the prototype so that all of the 
-	// GameObject instances can access the private static
 
 	GameObject.prototype.getImage = function() {
 		return this._image;
@@ -136,16 +127,6 @@ var GameObject = (function() {
 		this._type = type;
 	};
 	
-	//GameObject.prototype.addType = function(type){
-	//	if (this._type & type) return;
-	//	this._type += type;
-	//};
-	
-	//GameObject.prototype.removeType = function(type){
-	//	if (!this._type & type) return;
-	//	this._type -= type;
-	//};
-	
 	GameObject.prototype.is = function(type){
 		return this._type & type;		
 	};
@@ -155,11 +136,6 @@ var GameObject = (function() {
 })();
 
 var AnimatedObject = (function() {
-	var _animation; 
-	var _ticks_per_frame;
-	var _ticks;
-	var _frame;
-	var _should_animate;
 
 	function AnimatedObject(){
 		this._animation = null;
@@ -215,6 +191,7 @@ var AnimatedObject = (function() {
 // - each state has associated behaviour
 
 var FlameObject = (function () {
+
 	function FlameObject(grid_x, grid_y, type) {
 		var position = grid[grid_x][grid_y].getPosition();
 		this.setPosition(position.x, position.y);
@@ -231,26 +208,27 @@ var FlameObject = (function () {
 })();
 
 var Explosion = (function() {
-	var _grid_x = 0;
-	var _grid_y = 0;
-	var _radius = 1;
-	var _flames = new Array(); // TODO: all of these 'private' vars are moot
-	
-	function Explosion(grid_x, grid_y, radius){
-		this._grid_x = grid_x;
-		this._grid_y = grid_y;
-		this._radius = radius;
+
+	function Explosion(grid_x, grid_y, yield){
 		this._flames = new Array();
-		
-		// this needs to be wrapped in a FlameObject ?
 		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
-		// for each direction
-		// within radius
-		// check wall hits
-		// - stop on perma
-		// - stop and burn on brick
-		// spawn flames as animated objects
-		// add to array
+		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
+			var hit = false;
+			for (var i = 1; !hit && i <= yield; i++) {
+				var target_x = grid_x + direct[0] * i;
+				var target_y = grid_y + direct[1] * i;
+				var target = grid[target_x][target_y];
+				if (!target) continue;
+				if (target.is(TYPE.PASSABLE)) {
+					var type = (direct[0])
+						? (i == yield) ? ['L', '', 'R'][1 + direct[0]] : 'H' 
+						: (i == yield) ? ['T', '', 'B'][1 + direct[1]] : 'V' 
+					this._flames.push(new FlameObject(target_x, target_y, type));
+				}
+				if (target.is(TYPE.BRICK)) { hit = true; } // TODO: burn it
+				if (target.is(TYPE.PERMA)) { hit = true; }
+			}
+		}, this)
 	};
 	
 	Explosion.prototype.animate = function () {
@@ -277,11 +255,6 @@ var Explosion = (function() {
 })();
 
 var MovingObject = (function() {
-	var _movement_speed;
-	var _direction_x;
-	var _direction_y;
-	var _grid_x;
-	var	_grid_y;
 	
 	function MovingObject(){
 		this._movement_speed = DEFAULT_MOVEMENT_SPEED;
@@ -450,11 +423,6 @@ var PlayerObject = (function() {
 })();
 
 var BombObject = (function() {
-	var _timer;
-	var _enabled;
-	var _yield;
-	var _grid_x;
-	var _grid_y;
   
 	function BombObject(){
 		this.setAnimation(ANI.BOMB);
@@ -507,15 +475,13 @@ var BombObject = (function() {
 		this.disable();
 		this.setImage(IMG.NOTHING);
 		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
-		explosions.push(new Explosion(this._grid_x, this._grid_y));
+		explosions.push(new Explosion(this._grid_x, this._grid_y, yield));
 	};
   
 	return BombObject;
 })();
 
 var PointDevice = (function() {
-	var _touch, _drag;
-	var _last_x, _last_y;
   
 	function PointDevice(){
 		this._touch = false;
@@ -601,7 +567,7 @@ function init(){
 			//generate permanent cubes
 			if (x==0 || y==0 || x==MAP_WIDTH-1 || y==MAP_HEIGHT-1 || (x%2 == 0 && y%2 == 0 )) {
 				grid[x][y].setImage(IMG.PERMA);
-				grid[x][y].setType(TYPE.SOMETHING);
+				grid[x][y].setType(TYPE.PERMA);
 			} else {
 				// keep starting position, grid block (1,1) open
 				if (x + y < 4){	
@@ -612,7 +578,7 @@ function init(){
 				//generate destructible blocks
 				if (Math.random() * 10 < density){
 					grid[x][y].setImage(IMG.BRICK);
-					grid[x][y].setType(TYPE.SOMETHING);
+					grid[x][y].setType(TYPE.BRICK);
 				} else {
 					grid[x][y].setType(TYPE.PASSABLE);
 				}
