@@ -36,6 +36,7 @@ var KEY = {
 // image and animation info
 var ASSET_PATH = "images/";
 var ANI_DATA = {
+	BRICK:		{ prefix: "brick", frames: 7, extension: "gif" },
 	MAN_UP: 	{ prefix: "bbm_up", frames: 3, extension: "gif" },
 	MAN_DOWN:	{ prefix: "bbm_down", frames: 3, extension: "gif" },
 	MAN_LEFT:	{ prefix: "bbm_left", frames: 3, extension: "gif" },
@@ -51,7 +52,6 @@ var ANI_DATA = {
 	EXPLO_V:	{ prefix: "e_v", frames: 4, extension: "gif", symmetric: true }
 };
 var IMG_DATA = {
-	BRICK: 'brick.png',
 	PERMA: 'permabrick.jpg'
 };
 
@@ -71,6 +71,7 @@ var start_y = BLOCK_HEIGHT + OFFSET_Y;
 var grid = new Array();
 var bombs = new Array();
 var explosions = new Array();
+var dying = new Array();
 var key_press = [];
 var keys_down = [];
 var point;
@@ -156,24 +157,6 @@ var BasicObject = (function () {
 	return BasicObject;
 })();
 
-var BrickObject = (function () {
-
-	function BrickObject(grid_x, grid_y) {
-		this._type = TYPE.BRICK;
-		this.setImage(IMG.BRICK);
-		this.setGridPosition(grid_x, grid_y);
-	};
-	
-	var super_class = new GameObject();
-	BrickObject.prototype = super_class;
-	
-	BrickObject.prototype.burn = function () {
-	
-	};
-	
-	return BrickObject;
-})();
-
 var AnimatedObject = (function() {
 
 	function AnimatedObject(){
@@ -223,6 +206,36 @@ var AnimatedObject = (function() {
 	
 })();
 
+var BrickObject = (function () {
+
+	function BrickObject(grid_x, grid_y) {
+		this._grid_x = grid_x;
+		this._grid_y = grid_y;
+		this._type = TYPE.BRICK;
+		this._ticks_per_frame = 6;
+		this.setAnimation(ANI.BRICK, true);
+		this.setGridPosition(grid_x, grid_y);
+	};
+	
+	var super_class = new AnimatedObject();
+	BrickObject.prototype = super_class;
+	
+	BrickObject.prototype.end = function () {
+		grid[this._grid_x][this._grid_y] =
+			new BasicObject(this._grid_x, this._grid_y, 'PASSABLE');
+		dying.splice(dying.indexOf(this), 1);
+	};
+	
+	BrickObject.prototype.burn = function () {
+		this._frame = 1;
+		this._should_animate = true;
+		this.setType(TYPE.PASSABLE); // TODO: delay this ..
+		dying.push(this);
+	};
+	
+	return BrickObject;
+})();
+
 // StatefulObject
 // - has finite number of known states
 // - each state has associated animation
@@ -235,7 +248,6 @@ var FlameObject = (function () {
 		var position = grid[grid_x][grid_y].getPosition();
 		this.setPosition(position.x, position.y);
 		this.setAnimation(ANI['EXPLO_' + type], true);
-		this._frame = 0;
 		this._ticks_per_frame = 6;
 		this._should_animate = true;
 	};
@@ -674,6 +686,9 @@ function animate(){
 	});
 	explosions.forEach(function (explosion) {
 		explosion.animate();
+	});
+	dying.forEach(function (dying) {
+		dying.animate();
 	});
 };
 
