@@ -78,7 +78,7 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
-var yield = 2;
+var yield = 5;
 
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
@@ -437,6 +437,7 @@ var BombObject = (function() {
 		this._enabled = true;
 		this._frame = 0;
 		this._should_animate = true;
+		this.setImage(this._animation[0]);
 		this.startTimer(); // should check for power up to manually detonate
 	};
 	
