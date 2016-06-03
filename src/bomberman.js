@@ -110,10 +110,17 @@ var GameObject = (function() {
 		this._y = y;
 	};
 	
+	GameObject.prototype.setGridPosition = function(grid_x, grid_y){
+		this._grid_x = grid_x;
+		this._grid_y = grid_y;
+	  
+		this.setPosition(OFFSET_X + (grid_x * BLOCK_WIDTH), OFFSET_Y + (grid_y * BLOCK_HEIGHT));
+	};
+	
 	GameObject.prototype.getPosition = function() {
 		return {x:this._x, y:this._y};
 	};
-	
+		
 	GameObject.prototype.draw = function(ctx) {	
 		if (this._image.src)
 		ctx.drawImage(
@@ -133,6 +140,38 @@ var GameObject = (function() {
 
   return GameObject;
 	
+})();
+
+var BasicObject = (function () {
+
+	function BasicObject(grid_x, grid_y, type) {
+		this._type = TYPE[type];
+		if (IMG[type]) { this.setImage(IMG[type]); }
+		this.setGridPosition(grid_x, grid_y);
+	};
+	
+	var super_class = new GameObject();
+	BasicObject.prototype = super_class;
+	
+	return BasicObject;
+})();
+
+var BrickObject = (function () {
+
+	function BrickObject(grid_x, grid_y) {
+		this._type = TYPE.BRICK;
+		this.setImage(IMG.BRICK);
+		this.setGridPosition(grid_x, grid_y);
+	};
+	
+	var super_class = new GameObject();
+	BrickObject.prototype = super_class;
+	
+	BrickObject.prototype.burn = function () {
+	
+	};
+	
+	return BrickObject;
 })();
 
 var AnimatedObject = (function() {
@@ -225,8 +264,12 @@ var Explosion = (function() {
 						: (i == yield) ? ['T', '', 'B'][1 + direct[1]] : 'V' 
 					this._flames.push(new FlameObject(target_x, target_y, type));
 				}
-				if (target.is(TYPE.BRICK)) { hit = true; } // TODO: burn it
+				if (target.is(TYPE.BOMB)) {	target.burn(); }
 				if (target.is(TYPE.PERMA)) { hit = true; }
+				if (target.is(TYPE.BRICK)) {
+					hit = true;
+					target.burn();
+				}
 			}
 		}, this)
 	};
@@ -425,6 +468,7 @@ var PlayerObject = (function() {
 var BombObject = (function() {
   
 	function BombObject(){
+		this._type = TYPE.BOMB;
 		this.setAnimation(ANI.BOMB);
 		this._enabled = false;
 		this._ticks_per_frame = 18;
@@ -447,13 +491,6 @@ var BombObject = (function() {
 		this.stopTimer();
 	};
   
-	BombObject.prototype.setGridPosition = function(grid_x, grid_y){
-		this._grid_x = grid_x;
-		this._grid_y = grid_y;
-	  
-		this.setPosition(OFFSET_X + (grid_x * BLOCK_WIDTH), OFFSET_Y + (grid_y * BLOCK_HEIGHT));
-	};
-  
 	BombObject.prototype.isEnabled = function(){
 		return this._enabled;
 	};
@@ -469,14 +506,21 @@ var BombObject = (function() {
 	BombObject.prototype.plant = function(grid_x, grid_y){
 		this.setGridPosition(grid_x, grid_y);
 		this.enable();
-		grid[grid_x][grid_y].setType(TYPE.BOMB);
+		grid[grid_x][grid_y] = this;
 	};
 	
 	BombObject.prototype.explode = function(){
+		this.stopTimer();
 		this.disable();
 		this.setImage(IMG.NOTHING);
-		grid[this._grid_x][this._grid_y].setType(TYPE.PASSABLE);
+		grid[this._grid_x][this._grid_y] =
+			new BasicObject(this._grid_x, this._grid_y, 'PASSABLE');
 		explosions.push(new Explosion(this._grid_x, this._grid_y, yield));
+	};
+  
+	BombObject.prototype.burn = function () {
+		this.stopTimer();
+		this._timer = setTimeout(this.explode.bind(this), 100);
 	};
   
 	return BombObject;
@@ -560,29 +604,19 @@ function init(){
 		bombs.push(new BombObject());
 	}
 
-	for (x=0; x<MAP_WIDTH; x++){
-		grid[x]= new Array();
-		for (y=0; y < MAP_HEIGHT; y++){
-			grid[x][y] = new GameObject();
-			grid[x][y].setPosition(OFFSET_X + (x * BLOCK_WIDTH), OFFSET_Y + (y * BLOCK_HEIGHT));
-			//generate permanent cubes
-			if (x==0 || y==0 || x==MAP_WIDTH-1 || y==MAP_HEIGHT-1 || (x%2 == 0 && y%2 == 0 )) {
-				grid[x][y].setImage(IMG.PERMA);
-				grid[x][y].setType(TYPE.PERMA);
+	for (x = 0; x < MAP_WIDTH; x++){
+		grid[x] = new Array();
+		for (y = 0; y < MAP_HEIGHT; y++){
+			if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1
+				|| (x % 2 == 0 && y % 2 == 0)){
+				// perma border and blocks
+				grid[x][y] = new BasicObject(x, y, 'PERMA');
+			} else if (x + y < 4 || Math.random() * 10 >= density) {
+				// empty space around starting position and by density
+				grid[x][y] = new BasicObject(x, y, 'PASSABLE');
 			} else {
-				// keep starting position, grid block (1,1) open
-				if (x + y < 4){	
-					grid[x][y].setType(TYPE.PASSABLE);
-					continue
-				}; 
-				
-				//generate destructible blocks
-				if (Math.random() * 10 < density){
-					grid[x][y].setImage(IMG.BRICK);
-					grid[x][y].setType(TYPE.BRICK);
-				} else {
-					grid[x][y].setType(TYPE.PASSABLE);
-				}
+				// generate destructible blocks
+				grid[x][y] = new BrickObject(x, y);
 			}
 		}	
 	}
