@@ -68,10 +68,10 @@ var CAN_SCROLL_X = SCROLL_MIN_X > 0;
 var CAN_SCROLL_Y = SCROLL_MIN_Y > 0;
 var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_HEIGHT + OFFSET_Y;
-var grid = new Array();
-var bombs = new Array();
-var explosions = new Array();
-var dying = new Array();
+var grid = [];
+var bombs = [];
+var explosions = [];
+var dying = [];
 var key_press = [];
 var keys_down = [];
 var point;
@@ -79,7 +79,7 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
-var yield = 5;
+var yield = 1;
 
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
@@ -138,6 +138,11 @@ var GameObject = (function() {
 	GameObject.prototype.addType = function(type){
 		if (this._type & type) return;
 		this._type += type;
+	};
+	
+	GameObject.prototype.removeType = function(type){
+		if (!(this._type & type)) return;
+		this._type -= type;
 	};
 	
 	GameObject.prototype.is = function(type){
@@ -204,7 +209,6 @@ var AnimatedObject = (function() {
 	
 	AnimatedObject.prototype.end = function() {
 		this._should_animate = false;
-		this.setImage(new Image());
 	};
 	
 	return AnimatedObject;
@@ -251,8 +255,8 @@ var BrickObject = (function () {
 var FlameObject = (function () {
 
 	function FlameObject(grid_x, grid_y, type) {
-		var position = grid[grid_x][grid_y].getPosition();
-		this.setPosition(position.x, position.y);
+		grid[grid_x][grid_y].addType(TYPE.EXPLOSION);
+		this.setGridPosition(grid_x, grid_y);
 		this.setAnimation(ANI['EXPLO_' + type], true);
 		this._ticks_per_frame = 6;
 		this._should_animate = true;
@@ -261,13 +265,19 @@ var FlameObject = (function () {
 	var super_class = new AnimatedObject();
 	FlameObject.prototype = super_class;
 	
+	FlameObject.prototype.end = function () {
+		// TODO: proper clean-up on all objects?
+		this._should_animate = false;
+		grid[this._grid_x][this._grid_y].removeType(TYPE.EXPLOSION);
+	};
+	
 	return FlameObject;
 })();
 
 var Explosion = (function() {
 
 	function Explosion(grid_x, grid_y, yield){
-		this._flames = new Array();
+		this._flames = []; // for animating and drawing
 		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
 		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
 			var hit = false;
@@ -286,6 +296,10 @@ var Explosion = (function() {
 				if (target.is(TYPE.BOMB)) {	target.burn(); }
 				if (target.is(TYPE.PERMA)) { hit = true; }
 				if (target.is(TYPE.BRICK)) {
+					hit = true;
+					target.burn();
+				}
+				if (target.is(TYPE.PLAYER)) {
 					hit = true;
 					target.burn();
 				}
@@ -309,7 +323,8 @@ var Explosion = (function() {
 	};
 	
 	Explosion.prototype.end = function () {
-		this._flames = [];
+		this._flames.forEach(function (flame) { flame.end(); });
+		this._flames = null;
 		explosions.splice(explosions.indexOf(this),1);
 	};
 	
@@ -361,9 +376,16 @@ var MovingObject = (function() {
 		}
 	};
 	
-	MovingObject.prototype.physics = function(){
+	MovingObject.prototype.checkBurn = function() {
+		if (grid[this._grid_x][this._grid_y].is(TYPE.EXPLOSION)) this.burn();
+	};
+	
+	MovingObject.prototype.burn = function() {}; // should be overridden
+	
+	MovingObject.prototype.physics = function() {
 		this.collision();
 		this.move();
+		this.checkBurn();
 	};
 	
 	return MovingObject;
@@ -372,15 +394,38 @@ var MovingObject = (function() {
 var PlayerObject = (function() {
 
 	function PlayerObject(){
-		this._x = start_x;
-		this._y = start_y;
-		this._movement_speed = 0;
-		this.setImage(ANI.MAN_DOWN[1]);
 		this._ticks_per_frame = 6;
+		this.spawn();
 	};
 		
 	var super_class = new MovingObject();
 	PlayerObject.prototype = super_class;
+	
+	PlayerObject.prototype.spawn = function () {
+		this._x = start_x;
+		this._y = start_y;
+		this._movement_speed = 0;
+		this._alive = true;
+		this.setAnimation(ANI.MAN_DOWN);
+	};
+	
+	PlayerObject.prototype.end = function () {
+		this._should_animate = false;
+		scroll_offset_x = 0;
+		scroll_offset_y = 0;
+		this.spawn();
+		key_press[KEY.UP] = keys_down[KEY.UP];
+		key_press[KEY.DOWN] = keys_down[KEY.DOWN];
+		key_press[KEY.LEFT] = keys_down[KEY.LEFT];
+		key_press[KEY.RIGHT] = keys_down[KEY.RIGHT];
+	};
+	
+	PlayerObject.prototype.burn = function () {
+		this._movement_speed = 0;
+		this.setAnimation(ANI.MAN_DEATH, true);
+		this._should_animate = true;
+		this._alive = false;
+	};
 	
 	// overriding player move function to do scrolling and alignment stuff
 	PlayerObject.prototype.move = function() {
@@ -441,6 +486,7 @@ var PlayerObject = (function() {
 	};
    
 	PlayerObject.prototype.handleKeyPress = function (key_code) {
+		if (!this._alive) return;
 		// set direction and animation animation
 		switch(key_code) {
 			case KEY.UP:
@@ -467,6 +513,7 @@ var PlayerObject = (function() {
 	};
 	
 	PlayerObject.prototype.handleKeysDown = function (keys_down) {
+		if (!this._alive) return;
 		if (keys_down[KEY.UP]
 			|| keys_down[KEY.DOWN]
 			|| keys_down[KEY.LEFT]
@@ -478,7 +525,7 @@ var PlayerObject = (function() {
 			this._should_animate = false;
 			this._movement_speed = 0;
 		}
-		
+
 		if (keys_down[KEY.S]) {
 			keys_down[KEY.S] = false;
 			// plant bomb
@@ -593,7 +640,7 @@ function preload() {
 
 function generateMap() {
 	for (x = 0; x < MAP_WIDTH; x++){
-		grid[x] = new Array();
+		grid[x] = [];
 		for (y = 0; y < MAP_HEIGHT; y++){
 			if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1
 				|| (x % 2 == 0 && y % 2 == 0)){
