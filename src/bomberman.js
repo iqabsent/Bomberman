@@ -135,6 +135,11 @@ var GameObject = (function() {
 		this._type = type;
 	};
 	
+	GameObject.prototype.addType = function(type){
+		if (this._type & type) return;
+		this._type += type;
+	};
+	
 	GameObject.prototype.is = function(type){
 		return this._type & type;		
 	};
@@ -209,8 +214,6 @@ var AnimatedObject = (function() {
 var BrickObject = (function () {
 
 	function BrickObject(grid_x, grid_y) {
-		this._grid_x = grid_x;
-		this._grid_y = grid_y;
 		this._type = TYPE.BRICK;
 		this._ticks_per_frame = 6;
 		this.setAnimation(ANI.BRICK, true);
@@ -229,7 +232,10 @@ var BrickObject = (function () {
 	BrickObject.prototype.burn = function () {
 		this._frame = 1;
 		this._should_animate = true;
-		this.setType(TYPE.PASSABLE); // TODO: delay this ..
+		// TODO: delay action by number of frames
+		setTimeout(function () {
+			this.addType(TYPE.PASSABLE);
+		}.bind(this), 200);
 		dying.push(this);
 	};
 	
@@ -327,21 +333,30 @@ var MovingObject = (function() {
 			this._x + this._direction_x * this._movement_speed, 
 			this._y + this._direction_y * this._movement_speed
 		);
+		this.updateGridPosition();
+	};
+	
+	MovingObject.prototype.updateGridPosition = function() {
+		this._grid_x =
+			Math.floor((this._x - OFFSET_X) * ONE_OVER_BLOCK_WIDTH + 0.5);
+		this._grid_y =
+			Math.floor((this._y - OFFSET_Y) * ONE_OVER_BLOCK_HEIGHT + 0.5);
 	};
 	
 	MovingObject.prototype.collision = function(){	
-		var center_x = this._x + BLOCK_WIDTH * 0.5;
-		var center_y = this._y + BLOCK_HEIGHT * 0.5;
-		this._grid_x = Math.floor((center_x - OFFSET_X) * ONE_OVER_BLOCK_WIDTH);
-		this._grid_y = Math.floor((center_y - OFFSET_Y) * ONE_OVER_BLOCK_HEIGHT);
-
 		var target = grid
 			[this._grid_x + this._direction_x]
 			[this._grid_y + this._direction_y];
 		
 		if(!target.is(TYPE.PASSABLE)) {
-			if (this._direction_x && Math.abs(this._x + this._movement_speed * this._direction_x - target.getPosition().x) < BLOCK_WIDTH) this._movement_speed = 0;
-			if (this._direction_y && Math.abs(this._y + this._movement_speed * this._direction_y - target.getPosition().y) < BLOCK_HEIGHT) this._movement_speed = 0;
+			if (this._direction_x
+				&& Math.abs(this._x + this._movement_speed * this._direction_x
+					- target.getPosition().x) < BLOCK_WIDTH
+				) this._movement_speed = 0;
+			if (this._direction_y
+				&& Math.abs(this._y + this._movement_speed * this._direction_y
+					- target.getPosition().y) < BLOCK_HEIGHT
+				) this._movement_speed = 0;
 		}
 	};
 	
@@ -400,27 +415,28 @@ var PlayerObject = (function() {
 		// do scrolling stuff
 		if(CAN_SCROLL_X && (this._direction_x || error_x)) {
 			// moving horizontally
-			scroll_offset_x = this._x + this._movement_speed * this._direction_x - SCROLL_MIN_X + error_x;
-
+			scroll_offset_x =
+				this._x + this._movement_speed * this._direction_x
+				- SCROLL_MIN_X + error_x;
 			if(scroll_offset_x < 0) scroll_offset_x = 0;
-			if(scroll_offset_x > SCROLL_MAX_X)
-				scroll_offset_x = SCROLL_MAX_X;
+			if(scroll_offset_x > SCROLL_MAX_X) scroll_offset_x = SCROLL_MAX_X;
 		}
 	
 		if(CAN_SCROLL_Y && (this._direction_y || error_y)) {
-			// moving horizontally
-			scroll_offset_y = this._y + this._movement_speed * this._direction_y - SCROLL_MIN_Y + error_y;
-
+			// moving vertically
+			scroll_offset_y =
+				this._y + this._movement_speed * this._direction_y
+				- SCROLL_MIN_Y + error_y;
 			if(scroll_offset_y < 0) scroll_offset_y = 0;
-			if(scroll_offset_y > SCROLL_MAX_Y)
-				scroll_offset_y = SCROLL_MAX_Y;
+			if(scroll_offset_y > SCROLL_MAX_Y) scroll_offset_y = SCROLL_MAX_Y;
 		}
 
 		// do the usual stuff in move();
 		this.setPosition(
-			this._x+this._direction_x * this._movement_speed + error_x, 
-			this._y+this._direction_y * this._movement_speed + error_y
+			this._x + this._direction_x * this._movement_speed + error_x,
+			this._y + this._direction_y * this._movement_speed + error_y
 		);
+		this.updateGridPosition();
 	};
    
 	PlayerObject.prototype.handleKeyPress = function (key_code) {
@@ -516,6 +532,7 @@ var BombObject = (function() {
 	};
   
 	BombObject.prototype.plant = function(grid_x, grid_y){
+		if (!grid[grid_x][grid_y].is(TYPE.PASSABLE)) return;
 		this.setGridPosition(grid_x, grid_y);
 		this.enable();
 		grid[grid_x][grid_y] = this;
@@ -684,12 +701,8 @@ function animate(){
 			bomb.animate();
 		}
 	});
-	explosions.forEach(function (explosion) {
-		explosion.animate();
-	});
-	dying.forEach(function (dying) {
-		dying.animate();
-	});
+	explosions.forEach(function (explosion) { explosion.animate(); });
+	dying.forEach(function (dying) { dying.animate(); });
 };
 
 function draw(){
@@ -699,13 +712,8 @@ function draw(){
 			grid[x][y].draw(ctx);
 		}
 	}
-	for (i = 0; i < bombs.length; i++){
-		bombs[i].draw(ctx);
-	}
-	for (i = 0; i < explosions.length; i++){
-		explosions[i].draw(ctx);
-	}
-  
+	for (i = 0; i < bombs.length; i++){	bombs[i].draw(ctx);	}
+	for (i = 0; i < explosions.length; i++){ explosions[i].draw(ctx); }
 	player.draw(ctx);
 };
 
