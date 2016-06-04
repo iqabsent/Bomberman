@@ -556,84 +556,6 @@ var BombObject = (function() {
 	return BombObject;
 })();
 
-var PointDevice = (function() {
-  
-	function PointDevice(){
-		this._touch = false;
-		this._button_clicked = false;
-		this._touch_x = 0;
-		this._touch_y = 0;
-	};
-
-	PointDevice.prototype.point = function(x, y) {
-		// catch button press
-		if (x < 100) { // TODO: find good margin
-			keys_down[KEY.S] = true;
-			this._button_clicked = true;
-			return;
-		}
-		this._touch_x = x;
-		this._touch_y = y;
-		this._touch = true;
-	};
-  
-	PointDevice.prototype.releaseKeys = function(x, y) {
-		keys_down = [];
-	};
-  
-	PointDevice.prototype.move = function(x, y)  {
-		if(this._touch) {
-			var change_in_x = x - this._touch_x;
-			var change_in_y = y - this._touch_y;
-			if ( Math.abs(change_in_x) > DRAG_TOLERANCE ) {
-				this._drag = true;
-				this.releaseKeys();
-				if( change_in_x > 0 ) {
-					keys_down[KEY.RIGHT] = true;
-					key_press[KEY.RIGHT] = true;
-				} else {
-					keys_down[KEY.LEFT] = true;
-					key_press[KEY.LEFT] = true;
-				}
-			} else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
-				this._drag = true;
-				this.releaseKeys();
-				if( change_in_y > 0 ) {
-					keys_down[KEY.DOWN] = true;
-					key_press[KEY.DOWN] = true;
-				} else {
-					keys_down[KEY.UP] = true;
-					key_press[KEY.UP] = true;
-				}
-			}
-		}
-	};
-  
-	PointDevice.prototype.moved = function(x, y)  {
-		if(!this._touch) {
-			this.point(x, y);
-		} else {
-			this.move(x, y);
-		}
-	};
-  
-	PointDevice.prototype.stop = function() {
-		if (this._button_clicked) {
-			this._button_clicked = false;
-			return;
-		}
-		if( !this._drag ){
-			this.releaseKeys();
-		}
-		this._touch_x = 0;
-		this._touch_y = 0;
-		this._touch = false;
-		this._drag = false;
-	};
-  
-	return PointDevice;
-})();
-
 function init(){
 	preload(); // loads all images
 	ctx = document.getElementById('canvas').getContext('2d');
@@ -750,6 +672,80 @@ window.addEventListener('keyup', function(event) {
 	key_press[KEY.RIGHT] = keys_down[KEY.RIGHT];
 	
 }, false);
+
+// point devices
+var PointDevice = (function() {
+  
+	function PointDevice(){
+		this._touch = false;
+		this._touch_x = 0;
+		this._touch_y = 0;
+	};
+
+	PointDevice.prototype.point = function(x, y) {
+		// catch button press
+		if (x < 100) { // TODO: find good margin
+			keys_down[KEY.S] = true;
+			return;
+		}
+		this._touch_x = x;
+		this._touch_y = y;
+		this._touch = true;
+	};
+  
+	PointDevice.prototype.releaseKeys = function(x, y) {
+		keys_down = [];
+	};
+  
+	PointDevice.prototype.move = function(x, y)  {
+		if(this._touch) {
+			var change_in_x = x - this._touch_x;
+			var change_in_y = y - this._touch_y;
+			if ( Math.abs(change_in_x) > DRAG_TOLERANCE ) {
+				this._drag = true;
+				this.releaseKeys();
+				if( change_in_x > 0 ) {
+					keys_down[KEY.RIGHT] = true;
+					key_press[KEY.RIGHT] = true;
+				} else {
+					keys_down[KEY.LEFT] = true;
+					key_press[KEY.LEFT] = true;
+				}
+			} else if (Math.abs(change_in_y) > DRAG_TOLERANCE ) {
+				this._drag = true;
+				this.releaseKeys();
+				if( change_in_y > 0 ) {
+					keys_down[KEY.DOWN] = true;
+					key_press[KEY.DOWN] = true;
+				} else {
+					keys_down[KEY.UP] = true;
+					key_press[KEY.UP] = true;
+				}
+			}
+		}
+	};
+  
+	PointDevice.prototype.moved = function(x, y)  {
+		if(!this._touch) {
+			this.point(x, y);
+		} else {
+			this.move(x, y);
+		}
+	};
+  
+	PointDevice.prototype.stop = function() {
+		if (!this._touch) return;
+		if( !this._drag ){
+			this.releaseKeys();
+		}
+		this._touch_x = 0;
+		this._touch_y = 0;
+		this._touch = false;
+		this._drag = false;
+	};
+  
+	return PointDevice;
+})();
 
 // mouse
 window.addEventListener('mousedown', function(event) {
