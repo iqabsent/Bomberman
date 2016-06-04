@@ -560,11 +560,18 @@ var PointDevice = (function() {
   
 	function PointDevice(){
 		this._touch = false;
+		this._button_clicked = false;
 		this._touch_x = 0;
 		this._touch_y = 0;
 	};
 
 	PointDevice.prototype.point = function(x, y) {
+		// catch button press
+		if (x < 100) { // TODO: find good margin
+			keys_down[KEY.S] = true;
+			this._button_clicked = true;
+			return;
+		}
 		this._touch_x = x;
 		this._touch_y = y;
 		this._touch = true;
@@ -611,8 +618,11 @@ var PointDevice = (function() {
 	};
   
 	PointDevice.prototype.stop = function() {
+		if (this._button_clicked) {
+			this._button_clicked = false;
+			return;
+		}
 		if( !this._drag ){
-			// click TODO: allow bomb plant with PointDevice
 			this.releaseKeys();
 		}
 		this._touch_x = 0;
