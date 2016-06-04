@@ -79,8 +79,8 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
-var yield = 1;
-
+var yield = 2;
+var last_press_fake = false; // used to distinguish touch/keyboard behaviour
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
 
@@ -156,7 +156,7 @@ var GameObject = (function () {
 		return this._type & type;		
 	};
 
-  return GameObject;
+	return GameObject;
 	
 })();
 
@@ -237,6 +237,9 @@ var BrickObject = (function () {
 	return BrickObject;
 })();
 
+// Destroyable
+// - Animated > Destroyable > Brick/Moveable
+// - has burn()
 // StatefulObject
 // - has finite number of known states
 // - each state has associated animation
@@ -271,7 +274,6 @@ var Explosion = (function () {
 		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
 		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
 			var hit = false;
-			// TODO: set type flame in grid & clean up after
 			for (var i = 1; !hit && i <= yield; i++) {
 				var target_x = grid_x + direct[0] * i;
 				var target_y = grid_y + direct[1] * i;
@@ -402,10 +404,12 @@ var PlayerObject = (function () {
 		scroll_offset_x = 0;
 		scroll_offset_y = 0;
 		this.spawn();
-		key_press[KEY.UP] = keys_down[KEY.UP];
-		key_press[KEY.DOWN] = keys_down[KEY.DOWN];
-		key_press[KEY.LEFT] = keys_down[KEY.LEFT];
-		key_press[KEY.RIGHT] = keys_down[KEY.RIGHT];
+		if (!last_press_fake) {
+			key_press[KEY.UP] = keys_down[KEY.UP];
+			key_press[KEY.DOWN] = keys_down[KEY.DOWN];
+			key_press[KEY.LEFT] = keys_down[KEY.LEFT];
+			key_press[KEY.RIGHT] = keys_down[KEY.RIGHT];
+		} else { keys_down = []; }
 	};
 	
 	PlayerObject.prototype.burn = function () {
@@ -691,6 +695,7 @@ function draw(){
 // keys
 window.addEventListener('keydown', function (event) {
 	// record only if key is not already in down state
+	last_press_fake = false;
 	if (!keys_down[event.keyCode]) {
 		key_press[event.keyCode] = true; // cleared every tick
 		keys_down[event.keyCode] = true;
@@ -756,6 +761,7 @@ var PointDevice = (function () {
 					key_press[KEY.UP] = true;
 				}
 			}
+			if (this._drag) last_press_fake = true;
 		}
 	};
   
