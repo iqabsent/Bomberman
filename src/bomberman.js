@@ -84,45 +84,52 @@ var yield = 1;
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
 
-var GameObject = (function() {
+var GameObject = (function () {
 
-	function GameObject(){
-		this._image = new Image();
-		this._type = TYPE.NOTHING;
+	function GameObject(grid_x, grid_y, type) {
+		this._image = IMG[type] || new Image();
+		this._type = TYPE[type] || TYPE.NOTHING;
 		this._width = BLOCK_WIDTH;
 		this._height = BLOCK_HEIGHT;
+		if (typeof grid_x !== 'undefined'
+			&& typeof grid_y !== 'undefined') {
+			this.setGridPosition(grid_x, grid_y);
+		}
 	};
 
-	GameObject.prototype.getImage = function() {
+	GameObject.prototype.getImage = function () {
 		return this._image;
 	};
 
-	GameObject.prototype.setImage = function(image) {
+	GameObject.prototype.setImage = function (image) {
 		this._image = image;
 	};
 	
-	GameObject.prototype.setSize = function(size) {
+	GameObject.prototype.setSize = function (size) {
 		this._width = size;
 		this._height = size;
 	};
 	
-	GameObject.prototype.setPosition = function(x, y) {
+	GameObject.prototype.setPosition = function (x, y) {
 		this._x = x;
 		this._y = y;
 	};
 	
-	GameObject.prototype.setGridPosition = function(grid_x, grid_y){
+	GameObject.prototype.setGridPosition = function (grid_x, grid_y){
 		this._grid_x = grid_x;
 		this._grid_y = grid_y;
 	  
-		this.setPosition(OFFSET_X + (grid_x * BLOCK_WIDTH), OFFSET_Y + (grid_y * BLOCK_HEIGHT));
+		this.setPosition(
+			OFFSET_X + (grid_x * BLOCK_WIDTH),
+			OFFSET_Y + (grid_y * BLOCK_HEIGHT)
+		);
 	};
 	
-	GameObject.prototype.getPosition = function() {
+	GameObject.prototype.getPosition = function () {
 		return {x:this._x, y:this._y};
 	};
 		
-	GameObject.prototype.draw = function(ctx) {	
+	GameObject.prototype.draw = function (ctx) {	
 		if (this._image.src)
 		ctx.drawImage(
 			this._image, this._x - scroll_offset_x,
@@ -131,21 +138,21 @@ var GameObject = (function() {
 		);
 	};
 	
-	GameObject.prototype.setType = function(type){
+	GameObject.prototype.setType = function (type){
 		this._type = type;
 	};
 	
-	GameObject.prototype.addType = function(type){
+	GameObject.prototype.addType = function (type){
 		if (this._type & type) return;
 		this._type += type;
 	};
 	
-	GameObject.prototype.removeType = function(type){
+	GameObject.prototype.removeType = function (type){
 		if (!(this._type & type)) return;
 		this._type -= type;
 	};
 	
-	GameObject.prototype.is = function(type){
+	GameObject.prototype.is = function (type){
 		return this._type & type;		
 	};
 
@@ -153,21 +160,7 @@ var GameObject = (function() {
 	
 })();
 
-var BasicObject = (function () {
-
-	function BasicObject(grid_x, grid_y, type) {
-		this._type = TYPE[type];
-		if (IMG[type]) { this.setImage(IMG[type]); }
-		this.setGridPosition(grid_x, grid_y);
-	};
-	
-	var super_class = new GameObject();
-	BasicObject.prototype = super_class;
-	
-	return BasicObject;
-})();
-
-var AnimatedObject = (function() {
+var AnimatedObject = (function () {
 
 	function AnimatedObject(){
 		this._animation = null;
@@ -178,10 +171,9 @@ var AnimatedObject = (function() {
 		this._loop = true;
 	};
 	
-	var super_class = new GameObject();
-	AnimatedObject.prototype = super_class;
+	AnimatedObject.prototype = new GameObject;
 	
-	AnimatedObject.prototype.setAnimation = function(animation, stop_at_end) {
+	AnimatedObject.prototype.setAnimation = function (animation, stop_at_end) {
 		if (this._animation == animation) return;
 		this._animation = animation;
 		this._loop = !stop_at_end;
@@ -190,7 +182,7 @@ var AnimatedObject = (function() {
 		this.setImage(this._animation[this._frame]);
 	};
 	
-	AnimatedObject.prototype.animate = function() {
+	AnimatedObject.prototype.animate = function () {
 		if(this._animation && this._should_animate) {
 			if(++this._ticks >= this._ticks_per_frame) {
 				this._ticks = 0;
@@ -207,7 +199,7 @@ var AnimatedObject = (function() {
 		return this._should_animate; // to detect ended animations
 	};
 	
-	AnimatedObject.prototype.end = function() {
+	AnimatedObject.prototype.end = function () {
 		this._should_animate = false;
 	};
 	
@@ -224,12 +216,11 @@ var BrickObject = (function () {
 		this.setGridPosition(grid_x, grid_y);
 	};
 	
-	var super_class = new AnimatedObject();
-	BrickObject.prototype = super_class;
+	BrickObject.prototype = new AnimatedObject;
 	
 	BrickObject.prototype.end = function () {
 		grid[this._grid_x][this._grid_y] =
-			new BasicObject(this._grid_x, this._grid_y, 'PASSABLE');
+			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
 		dying.splice(dying.indexOf(this), 1);
 	};
 	
@@ -262,8 +253,7 @@ var FlameObject = (function () {
 		this._should_animate = true;
 	};
 	
-	var super_class = new AnimatedObject();
-	FlameObject.prototype = super_class;
+	FlameObject.prototype = new AnimatedObject;
 	
 	FlameObject.prototype.end = function () {
 		// TODO: proper clean-up on all objects?
@@ -274,7 +264,7 @@ var FlameObject = (function () {
 	return FlameObject;
 })();
 
-var Explosion = (function() {
+var Explosion = (function () {
 
 	function Explosion(grid_x, grid_y, yield){
 		this._flames = []; // for animating and drawing
@@ -331,7 +321,7 @@ var Explosion = (function() {
 	return Explosion;
 })();
 
-var MovingObject = (function() {
+var MovingObject = (function () {
 	
 	function MovingObject(){
 		this._movement_speed = DEFAULT_MOVEMENT_SPEED;
@@ -341,10 +331,9 @@ var MovingObject = (function() {
 		this._direction_y = 0;		
 	};
 		
-	var super_class = new AnimatedObject();
-	MovingObject.prototype = super_class;
+	MovingObject.prototype = new AnimatedObject;
 	
-	MovingObject.prototype.move = function() {
+	MovingObject.prototype.move = function () {
 		this.setPosition(
 			this._x + this._direction_x * this._movement_speed, 
 			this._y + this._direction_y * this._movement_speed
@@ -352,14 +341,14 @@ var MovingObject = (function() {
 		this.updateGridPosition();
 	};
 	
-	MovingObject.prototype.updateGridPosition = function() {
+	MovingObject.prototype.updateGridPosition = function () {
 		this._grid_x =
 			Math.floor((this._x - OFFSET_X) * ONE_OVER_BLOCK_WIDTH + 0.5);
 		this._grid_y =
 			Math.floor((this._y - OFFSET_Y) * ONE_OVER_BLOCK_HEIGHT + 0.5);
 	};
 	
-	MovingObject.prototype.collision = function(){	
+	MovingObject.prototype.collision = function (){	
 		var target = grid
 			[this._grid_x + this._direction_x]
 			[this._grid_y + this._direction_y];
@@ -376,13 +365,13 @@ var MovingObject = (function() {
 		}
 	};
 	
-	MovingObject.prototype.checkBurn = function() {
+	MovingObject.prototype.checkBurn = function () {
 		if (grid[this._grid_x][this._grid_y].is(TYPE.EXPLOSION)) this.burn();
 	};
 	
-	MovingObject.prototype.burn = function() {}; // should be overridden
+	MovingObject.prototype.burn = function () {}; // should be overridden
 	
-	MovingObject.prototype.physics = function() {
+	MovingObject.prototype.physics = function () {
 		this.collision();
 		this.move();
 		this.checkBurn();
@@ -391,15 +380,14 @@ var MovingObject = (function() {
 	return MovingObject;
 })();
 
-var PlayerObject = (function() {
+var PlayerObject = (function () {
 
 	function PlayerObject(){
 		this._ticks_per_frame = 6;
 		this.spawn();
 	};
-		
-	var super_class = new MovingObject();
-	PlayerObject.prototype = super_class;
+
+	PlayerObject.prototype = new MovingObject;
 	
 	PlayerObject.prototype.spawn = function () {
 		this._x = start_x;
@@ -428,7 +416,7 @@ var PlayerObject = (function() {
 	};
 	
 	// overriding player move function to do scrolling and alignment stuff
-	PlayerObject.prototype.move = function() {
+	PlayerObject.prototype.move = function () {
   
 		// align player with grid
 		var error_x = 0;
@@ -541,7 +529,7 @@ var PlayerObject = (function() {
 	return PlayerObject;
 })();
 
-var BombObject = (function() {
+var BombObject = (function () {
   
 	function BombObject(){
 		this._type = TYPE.BOMB;
@@ -550,10 +538,9 @@ var BombObject = (function() {
 		this._ticks_per_frame = 18;
 	};
 		
-	var super_class = new AnimatedObject();
-	BombObject.prototype = super_class;
+	BombObject.prototype = new AnimatedObject;
   
-	BombObject.prototype.enable = function(){
+	BombObject.prototype.enable = function (){
 		this._enabled = true;
 		this._frame = 0;
 		this._should_animate = true;
@@ -561,37 +548,37 @@ var BombObject = (function() {
 		this.startTimer(); // should check for power up to manually detonate
 	};
 	
-	BombObject.prototype.disable = function(){
+	BombObject.prototype.disable = function (){
 		this._enabled = false;
 		this._should_animate = false;
 		this.stopTimer();
 	};
   
-	BombObject.prototype.isEnabled = function(){
+	BombObject.prototype.isEnabled = function (){
 		return this._enabled;
 	};
   
-	BombObject.prototype.stopTimer = function(){
+	BombObject.prototype.stopTimer = function (){
 		clearTimeout(this._timer);
 	};
   
-	BombObject.prototype.startTimer = function(){
+	BombObject.prototype.startTimer = function (){
 		this._timer = setTimeout(this.explode.bind(this), BOOM_TIME);
 	};
   
-	BombObject.prototype.plant = function(grid_x, grid_y){
+	BombObject.prototype.plant = function (grid_x, grid_y){
 		if (!grid[grid_x][grid_y].is(TYPE.PASSABLE)) return;
 		this.setGridPosition(grid_x, grid_y);
 		this.enable();
 		grid[grid_x][grid_y] = this;
 	};
 	
-	BombObject.prototype.explode = function(){
+	BombObject.prototype.explode = function (){
 		this.stopTimer();
 		this.disable();
 		this.setImage(IMG.NOTHING);
 		grid[this._grid_x][this._grid_y] =
-			new BasicObject(this._grid_x, this._grid_y, 'PASSABLE');
+			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
 		explosions.push(new Explosion(this._grid_x, this._grid_y, yield));
 	};
   
@@ -645,10 +632,10 @@ function generateMap() {
 			if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1
 				|| (x % 2 == 0 && y % 2 == 0)){
 				// perma border and blocks
-				grid[x][y] = new BasicObject(x, y, 'PERMA');
+				grid[x][y] = new GameObject(x, y, 'PERMA');
 			} else if (x + y < 4 || Math.random() * 10 >= density) {
 				// empty space around starting position and by density
-				grid[x][y] = new BasicObject(x, y, 'PASSABLE');
+				grid[x][y] = new GameObject(x, y, 'PASSABLE');
 			} else {
 				// generate destructible blocks
 				grid[x][y] = new BrickObject(x, y);
@@ -702,14 +689,14 @@ function draw(){
 };
 
 // keys
-window.addEventListener('keydown', function(event) {
+window.addEventListener('keydown', function (event) {
 	// record only if key is not already in down state
 	if (!keys_down[event.keyCode]) {
 		key_press[event.keyCode] = true; // cleared every tick
 		keys_down[event.keyCode] = true;
 	}
 }, false);
-window.addEventListener('keyup', function(event) {
+window.addEventListener('keyup', function (event) {
 	keys_down[event.keyCode] = false;
 	
 	// if movement key released, and another is down, switch
@@ -721,7 +708,7 @@ window.addEventListener('keyup', function(event) {
 }, false);
 
 // point devices
-var PointDevice = (function() {
+var PointDevice = (function () {
   
 	function PointDevice(){
 		this._touch = false;
@@ -729,7 +716,7 @@ var PointDevice = (function() {
 		this._touch_y = 0;
 	};
 
-	PointDevice.prototype.point = function(x, y) {
+	PointDevice.prototype.point = function (x, y) {
 		// catch button press
 		if (x < 100) { // TODO: find good margin
 			keys_down[KEY.S] = true;
@@ -740,11 +727,11 @@ var PointDevice = (function() {
 		this._touch = true;
 	};
   
-	PointDevice.prototype.releaseKeys = function(x, y) {
+	PointDevice.prototype.releaseKeys = function () {
 		keys_down = [];
 	};
   
-	PointDevice.prototype.move = function(x, y)  {
+	PointDevice.prototype.move = function (x, y)  {
 		if(this._touch) {
 			var change_in_x = x - this._touch_x;
 			var change_in_y = y - this._touch_y;
@@ -772,7 +759,7 @@ var PointDevice = (function() {
 		}
 	};
   
-	PointDevice.prototype.moved = function(x, y)  {
+	PointDevice.prototype.moved = function (x, y)  {
 		if(!this._touch) {
 			this.point(x, y);
 		} else {
@@ -780,7 +767,7 @@ var PointDevice = (function() {
 		}
 	};
   
-	PointDevice.prototype.stop = function() {
+	PointDevice.prototype.stop = function () {
 		if (!this._touch) return;
 		if( !this._drag ){
 			this.releaseKeys();
@@ -795,20 +782,20 @@ var PointDevice = (function() {
 })();
 
 // mouse
-window.addEventListener('mousedown', function(event) {
+window.addEventListener('mousedown', function (event) {
 	point.point(event.clientX, event.clientY);
 }, false);
-window.addEventListener('mouseup', function(event) {
+window.addEventListener('mouseup', function (event) {
 	point.stop();
 }, false);
-window.addEventListener('mousemove', function(event) {
+window.addEventListener('mousemove', function (event) {
 	point.move(event.clientX, event.clientY);
 }, false);
 
 // touch
-window.addEventListener('touchend', function(event) {
+window.addEventListener('touchend', function (event) {
 	point.stop();
 }, false);
-window.addEventListener('touchmove', function(event) {
+window.addEventListener('touchmove', function (event) {
 	point.moved(event.touches[0].pageX, event.touches[0].pageY);
 }, false);
