@@ -271,6 +271,7 @@ var Explosion = (function() {
 		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
 		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
 			var hit = false;
+			// TODO: set type flame in grid & clean up after
 			for (var i = 1; !hit && i <= yield; i++) {
 				var target_x = grid_x + direct[0] * i;
 				var target_y = grid_y + direct[1] * i;
@@ -611,7 +612,7 @@ var PointDevice = (function() {
   
 	PointDevice.prototype.stop = function() {
 		if( !this._drag ){
-			// click
+			// click TODO: allow bomb plant with PointDevice
 			this.releaseKeys();
 		}
 		this._touch_x = 0;
@@ -633,23 +634,7 @@ function init(){
 		bombs.push(new BombObject());
 	}
 
-	for (x = 0; x < MAP_WIDTH; x++){
-		grid[x] = new Array();
-		for (y = 0; y < MAP_HEIGHT; y++){
-			if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1
-				|| (x % 2 == 0 && y % 2 == 0)){
-				// perma border and blocks
-				grid[x][y] = new BasicObject(x, y, 'PERMA');
-			} else if (x + y < 4 || Math.random() * 10 >= density) {
-				// empty space around starting position and by density
-				grid[x][y] = new BasicObject(x, y, 'PASSABLE');
-			} else {
-				// generate destructible blocks
-				grid[x][y] = new BrickObject(x, y);
-			}
-		}	
-	}
-	
+	generateMap();
 	gameloop(); // kick off loop; uses requestAnimationFrame
 };
 
@@ -672,6 +657,25 @@ function preload() {
 		IMG[key].src = ASSET_PATH + IMG_DATA[key];
 	});
 	IMG.NOTHING = new Image();
+};
+
+function generateMap() {
+	for (x = 0; x < MAP_WIDTH; x++){
+		grid[x] = new Array();
+		for (y = 0; y < MAP_HEIGHT; y++){
+			if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1
+				|| (x % 2 == 0 && y % 2 == 0)){
+				// perma border and blocks
+				grid[x][y] = new BasicObject(x, y, 'PERMA');
+			} else if (x + y < 4 || Math.random() * 10 >= density) {
+				// empty space around starting position and by density
+				grid[x][y] = new BasicObject(x, y, 'PASSABLE');
+			} else {
+				// generate destructible blocks
+				grid[x][y] = new BrickObject(x, y);
+			}
+		}	
+	}
 };
 	
 function gameloop(){
@@ -701,6 +705,7 @@ function animate(){
 			bomb.animate();
 		}
 	});
+	// TODO: unify animated objects?
 	explosions.forEach(function (explosion) { explosion.animate(); });
 	dying.forEach(function (dying) { dying.animate(); });
 };
