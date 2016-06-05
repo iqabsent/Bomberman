@@ -1,4 +1,7 @@
 // constants
+var MAX_CANVAS_HEIGHT = 600;
+var DEFAULT_CANVAS_WIDTH = 600;
+var DEFAULT_CANVAS_HEIGHT = 403;
 var CANVAS_WIDTH = 600;
 var CANVAS_HEIGHT = 403;
 var DEFAULT_MOVEMENT_SPEED = 1.5;
@@ -103,11 +106,6 @@ var GameObject = (function () {
 
 	GameObject.prototype.setImage = function (image) {
 		this._image = image;
-	};
-	
-	GameObject.prototype.setSize = function (size) {
-		this._width = size;
-		this._height = size;
 	};
 	
 	GameObject.prototype.setPosition = function (x, y) {
@@ -595,8 +593,12 @@ var BombObject = (function () {
 })();
 
 function init(){
+	sizeCanvas(); // sets up ctx
+	window.onresize = sizeCanvas;
+	
+	
 	preload(); // loads all images
-	ctx = document.getElementById('canvas').getContext('2d');
+	
 	point = new PointDevice();
 	player = new PlayerObject();
   
@@ -628,6 +630,21 @@ function preload() {
 	});
 	IMG.NOTHING = new Image();
 };
+
+function sizeCanvas() {
+	var canvas = document.getElementById('canvas');
+	ctx = canvas.getContext('2d');
+	
+	canvas.height = CANVAS_HEIGHT = Math.min(window.innerHeight, MAX_CANVAS_HEIGHT);
+	var scale = canvas.height / DEFAULT_CANVAS_HEIGHT;
+	canvas.width = CANVAS_WIDTH = Math.min(window.innerWidth, MAP_WIDTH * BLOCK_WIDTH * scale);
+	ctx.scale(scale, scale);
+	
+	SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH) * 0.5 / scale);
+	SCROLL_MAX_X = Math.round(MAP_WIDTH * BLOCK_WIDTH - CANVAS_WIDTH / scale);
+	SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_HEIGHT) * 0.5 / scale);
+	SCROLL_MAX_Y = Math.round(MAP_HEIGHT * BLOCK_HEIGHT + OFFSET_Y - CANVAS_HEIGHT / scale);
+}
 
 function generateMap() {
 	for (x = 0; x < MAP_WIDTH; x++){
