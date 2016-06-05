@@ -611,6 +611,11 @@ function init(){
 };
 
 function preload() {
+	Object.keys(IMG_DATA).forEach(function (key) {
+			IMG[key] = new Image();
+			IMG[key].src = ASSET_PATH + IMG_DATA[key];
+	});
+	IMG.NOTHING = new Image();
 	Object.keys(ANI_DATA).forEach(function (key) {
 		ANI[key] = [];
 		for (var frame = 0; frame < ANI_DATA[key].frames; frame++) {
@@ -624,11 +629,6 @@ function preload() {
 			}
 		}
 	});
-	Object.keys(IMG_DATA).forEach(function (key) {
-		IMG[key] = new Image();
-		IMG[key].src = ASSET_PATH + IMG_DATA[key];
-	});
-	IMG.NOTHING = new Image();
 };
 
 function sizeCanvas() {
