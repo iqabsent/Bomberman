@@ -45,6 +45,8 @@ var ANI_DATA = {
 	MAN_LEFT:	{ prefix: "bbm_left", frames: 3, extension: "gif" },
 	MAN_RIGHT:	{ prefix: "bbm_right", frames: 3, extension: "gif" },
 	MAN_DEATH:	{ prefix: "bbm_death", frames: 7, extension: "gif" },
+	BALOM_LD:	{ prefix: "balom_ld", frames: 3, extension: "gif" },
+	BALOM_RU:	{ prefix: "balom_ru", frames: 3, extension: "gif" },
 	BOMB:		{ prefix: "bomb", frames: 4, extension: "gif" },
 	EXPLO_C:	{ prefix: "e_c", frames: 4, extension: "gif", symmetric: true },
 	EXPLO_T:	{ prefix: "e_t", frames: 4, extension: "gif", symmetric: true },
@@ -54,8 +56,6 @@ var ANI_DATA = {
 	EXPLO_H:	{ prefix: "e_h", frames: 4, extension: "gif", symmetric: true },
 	EXPLO_V:	{ prefix: "e_v", frames: 4, extension: "gif", symmetric: true },
 	ENEMY_DEATH:{ prefix: "enemy_death", frames: 4, extension: "gif" }, // TODO: clean
-	BALOM_LD:	{ prefix: "balom_ld", frames: 3, extension: "gif" },
-	BALOM_RU:	{ prefix: "balom_ru", frames: 3, extension: "gif" },
 };
 var IMG_DATA = {
 	PERMA: 'permabrick.jpg',
