@@ -52,10 +52,14 @@ var ANI_DATA = {
 	EXPLO_L:	{ prefix: "e_l", frames: 4, extension: "gif", symmetric: true },
 	EXPLO_R:	{ prefix: "e_r", frames: 4, extension: "gif", symmetric: true },
 	EXPLO_H:	{ prefix: "e_h", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_V:	{ prefix: "e_v", frames: 4, extension: "gif", symmetric: true }
+	EXPLO_V:	{ prefix: "e_v", frames: 4, extension: "gif", symmetric: true },
+	ENEMY_DEATH:{ prefix: "enemy_death", frames: 4, extension: "gif" }, // TODO: clean
+	BALOM_LD:	{ prefix: "balom_ld", frames: 3, extension: "gif" },
+	BALOM_RU:	{ prefix: "balom_ru", frames: 3, extension: "gif" },
 };
 var IMG_DATA = {
-	PERMA: 'permabrick.jpg'
+	PERMA: 'permabrick.jpg',
+	BALOM_DEATH: 'balom_death.gif'
 };
 
 // image and animation instances - populated on preload()
@@ -75,6 +79,7 @@ var grid = [];
 var bombs = [];
 var explosions = [];
 var dying = [];
+var enemies = [];
 var key_press = [];
 var keys_down = [];
 var point;
@@ -125,6 +130,10 @@ var GameObject = (function () {
 	
 	GameObject.prototype.getPosition = function () {
 		return {x:this._x, y:this._y};
+	};
+	
+	GameObject.prototype.getGridPosition = function () {
+		return {x:this._grid_x, y:this._grid_y};
 	};
 		
 	GameObject.prototype.draw = function (ctx) {	
@@ -205,6 +214,10 @@ var AnimatedObject = (function () {
 	
 })();
 
+// Destroyable
+// = Animated > Destroyable > Brick/Moveable/Stateful
+// - has burn()
+
 var BrickObject = (function () {
 
 	function BrickObject(grid_x, grid_y) {
@@ -234,15 +247,6 @@ var BrickObject = (function () {
 	
 	return BrickObject;
 })();
-
-// Destroyable
-// - Animated > Destroyable > Brick/Moveable
-// - has burn()
-// StatefulObject
-// - has finite number of known states
-// - each state has associated animation
-// IntelligentObject
-// - each state has associated behaviour
 
 var FlameObject = (function () {
 
@@ -380,6 +384,133 @@ var MovingObject = (function () {
 	return MovingObject;
 })();
 
+var BombObject = (function () {
+  
+	function BombObject(){
+		this._type = TYPE.BOMB;
+		this.setAnimation(ANI.BOMB);
+		this._enabled = false;
+		this._ticks_per_frame = 18;
+	};
+		
+	BombObject.prototype = new AnimatedObject;
+  
+	BombObject.prototype.enable = function (){
+		this._enabled = true;
+		this._frame = 0;
+		this._should_animate = true;
+		this.setImage(this._animation[0]);
+		this.startTimer(); // should check for power up to manually detonate
+	};
+	
+	BombObject.prototype.disable = function (){
+		this._enabled = false;
+		this._should_animate = false;
+		this.stopTimer();
+	};
+  
+	BombObject.prototype.isEnabled = function (){
+		return this._enabled;
+	};
+  
+	BombObject.prototype.stopTimer = function (){
+		clearTimeout(this._timer);
+	};
+  
+	BombObject.prototype.startTimer = function (){
+		this._timer = setTimeout(this.explode.bind(this), BOOM_TIME);
+	};
+  
+	BombObject.prototype.plant = function (grid_x, grid_y){
+		if (!grid[grid_x][grid_y].is(TYPE.PASSABLE)) return;
+		this.setGridPosition(grid_x, grid_y);
+		this.enable();
+		grid[grid_x][grid_y] = this;
+	};
+	
+	BombObject.prototype.explode = function (){
+		this.stopTimer();
+		this.disable();
+		this.setImage(IMG.NOTHING);
+		grid[this._grid_x][this._grid_y] =
+			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
+		explosions.push(new Explosion(this._grid_x, this._grid_y, yield));
+	};
+  
+	BombObject.prototype.burn = function () {
+		this.stopTimer();
+		this._timer = setTimeout(this.explode.bind(this), 100);
+	};
+  
+	return BombObject;
+})();
+
+// StatefulObject
+// = Moveable > Stateful > Player/Intelligent
+// - has finite number of known states
+// - each state has associated animation
+// IntelligentObject (monsters)
+// = Stateful > Intelligent
+// - each state has associated behaviour
+
+var Balom = (function () {
+	function Balom() {
+		this.spawn();
+		this._ticks_per_frame = 18;
+		this.setAnimation(ANI.BALOM_LD);
+		this._should_animate = true;
+	};
+	
+	Balom.prototype = new MovingObject;
+	
+	Balom.prototype.spawn = function () {
+		this._alive = true;
+		var randomSpawn = this.findRandomPassable(8);
+		this.setGridPosition(randomSpawn.x, randomSpawn.y);
+	};
+	
+	Balom.prototype.findRandomPassable = function (min_distance_from_start) {
+		var passable = findPassable(min_distance_from_start);
+		return passable[Math.floor(Math.random() * passable.length)];
+	};
+	
+	Balom.prototype.isAlive = function () {
+		return this._alive;
+	};
+	
+	Balom.prototype.act = function () {
+		// !this._movement_speed
+			// should_do something
+		// aligned-ish_with_grid ?
+			// could do something
+		// if doing something
+			// collect direction options
+			// pick random
+	};
+	
+	Balom.prototype.burn = function () {
+		if (!this._alive) return;
+		this._alive = false;
+		this._should_animate = false;
+		this._movement_speed = 0;
+		setTimeout(
+			function () {
+				this._should_animate = true;
+				this.setAnimation(ANI.ENEMY_DEATH, true);
+			}.bind(this),
+			1000
+		);
+		this.setImage(IMG.BALOM_DEATH);
+	};
+	
+	Balom.prototype.end = function () {
+		enemies.splice(enemies.indexOf(this),1);
+	};
+	
+	return Balom;
+})();
+
+// TODO: Player >> Stateful?
 var PlayerObject = (function () {
 
 	function PlayerObject(){
@@ -411,10 +542,21 @@ var PlayerObject = (function () {
 	};
 	
 	PlayerObject.prototype.burn = function () {
+		if (!this._alive) return;
 		this._movement_speed = 0;
 		this.setAnimation(ANI.MAN_DEATH, true);
 		this._should_animate = true;
 		this._alive = false;
+	};
+	
+	PlayerObject.prototype.checkBurn = function () {
+		if (grid[this._grid_x][this._grid_y].is(TYPE.EXPLOSION)) this.burn();
+		for (i = 0; i < enemies.length; i++){
+			if (!enemies[i].isAlive()) continue;
+			var enemyPosition = enemies[i].getGridPosition();
+			if (enemyPosition.x === this._grid_x
+				&& enemyPosition.y === this._grid_y) this.burn();
+		}
 	};
 	
 	// overriding player move function to do scrolling and alignment stuff
@@ -531,72 +673,22 @@ var PlayerObject = (function () {
 	return PlayerObject;
 })();
 
-var BombObject = (function () {
-  
-	function BombObject(){
-		this._type = TYPE.BOMB;
-		this.setAnimation(ANI.BOMB);
-		this._enabled = false;
-		this._ticks_per_frame = 18;
-	};
-		
-	BombObject.prototype = new AnimatedObject;
-  
-	BombObject.prototype.enable = function (){
-		this._enabled = true;
-		this._frame = 0;
-		this._should_animate = true;
-		this.setImage(this._animation[0]);
-		this.startTimer(); // should check for power up to manually detonate
-	};
-	
-	BombObject.prototype.disable = function (){
-		this._enabled = false;
-		this._should_animate = false;
-		this.stopTimer();
-	};
-  
-	BombObject.prototype.isEnabled = function (){
-		return this._enabled;
-	};
-  
-	BombObject.prototype.stopTimer = function (){
-		clearTimeout(this._timer);
-	};
-  
-	BombObject.prototype.startTimer = function (){
-		this._timer = setTimeout(this.explode.bind(this), BOOM_TIME);
-	};
-  
-	BombObject.prototype.plant = function (grid_x, grid_y){
-		if (!grid[grid_x][grid_y].is(TYPE.PASSABLE)) return;
-		this.setGridPosition(grid_x, grid_y);
-		this.enable();
-		grid[grid_x][grid_y] = this;
-	};
-	
-	BombObject.prototype.explode = function (){
-		this.stopTimer();
-		this.disable();
-		this.setImage(IMG.NOTHING);
-		grid[this._grid_x][this._grid_y] =
-			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
-		explosions.push(new Explosion(this._grid_x, this._grid_y, yield));
-	};
-  
-	BombObject.prototype.burn = function () {
-		this.stopTimer();
-		this._timer = setTimeout(this.explode.bind(this), 100);
-	};
-  
-	return BombObject;
-})();
+// TODO: grid management system?
+function findPassable (min_distance_from_start) {
+	var passable = [];
+	for (var i = 1; i < MAP_WIDTH - 1; i++) {
+		for (var j = 1; j < MAP_HEIGHT - 1; j++) {
+			if (i + j < min_distance_from_start) continue;
+			if (grid[i][j].is(TYPE.PASSABLE)) passable.push({x: i, y: j});
+		}
+	}
+	return passable;
+};
 
 function init(){
 	sizeCanvas(); // sets up ctx
 	window.onresize = sizeCanvas;
-	
-	
+		
 	preload(); // loads all images
 	
 	point = new PointDevice();
@@ -607,6 +699,7 @@ function init(){
 	}
 
 	generateMap();
+	spawnEnemies();
 	gameloop(); // kick off loop; uses requestAnimationFrame
 };
 
@@ -664,6 +757,12 @@ function generateMap() {
 		}	
 	}
 };
+
+function spawnEnemies() {
+	for (var i = 0; i < 5; i++) {
+		enemies.push(new Balom());
+	}
+};
 	
 function gameloop(){
 	handleInput(key_press, keys_down);
@@ -683,6 +782,7 @@ function handleInput(key_press, keys_down) {
 
 function physics() {
 	player.physics();
+	for (i = 0; i < enemies.length; i++){ enemies[i].physics(); }
 };
 
 function animate(){
@@ -695,6 +795,7 @@ function animate(){
 	// TODO: unify animated objects?
 	explosions.forEach(function (explosion) { explosion.animate(); });
 	dying.forEach(function (dying) { dying.animate(); });
+	enemies.forEach(function (enemy) { enemy.animate(); });
 };
 
 function draw(){
@@ -706,6 +807,7 @@ function draw(){
 	}
 	for (i = 0; i < bombs.length; i++){	bombs[i].draw(ctx);	}
 	for (i = 0; i < explosions.length; i++){ explosions[i].draw(ctx); }
+	for (i = 0; i < enemies.length; i++){ enemies[i].draw(ctx); }
 	player.draw(ctx);
 };
 
@@ -815,7 +917,7 @@ window.addEventListener('mousemove', function (event) {
 	point.move(event.clientX, event.clientY);
 }, false);
 
-// touch
+// touch TODO: handle multi-touch input
 window.addEventListener('touchend', function (event) {
 	point.stop();
 }, false);
