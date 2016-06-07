@@ -22,8 +22,8 @@ var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var TYPE = {
 	NOTHING: 0,
 	PASSABLE: 1,
-	BRICK: 2,
-	PERMA: 4,
+	SOFT_BLOCK: 2,
+	HARD_BLOCK: 4,
 	BOMB: 8,
 	EXPLOSION: 16
 };
@@ -39,26 +39,26 @@ var KEY = {
 // image and animation info
 var ASSET_PATH = "images/";
 var ANI_DATA = {
-	BRICK:		{ prefix: "brick", frames: 7, extension: "gif" },
-	MAN_UP: 	{ prefix: "bbm_up", frames: 3, extension: "gif" },
-	MAN_DOWN:	{ prefix: "bbm_down", frames: 3, extension: "gif" },
-	MAN_LEFT:	{ prefix: "bbm_left", frames: 3, extension: "gif" },
-	MAN_RIGHT:	{ prefix: "bbm_right", frames: 3, extension: "gif" },
-	MAN_DEATH:	{ prefix: "bbm_death", frames: 7, extension: "gif" },
-	BALOM_LD:	{ prefix: "balom_ld", frames: 3, extension: "gif" },
-	BALOM_RU:	{ prefix: "balom_ru", frames: 3, extension: "gif" },
-	BOMB:		{ prefix: "bomb", frames: 4, extension: "gif" },
-	EXPLO_C:	{ prefix: "e_c", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_T:	{ prefix: "e_t", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_B:	{ prefix: "e_b", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_L:	{ prefix: "e_l", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_R:	{ prefix: "e_r", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_H:	{ prefix: "e_h", frames: 4, extension: "gif", symmetric: true },
-	EXPLO_V:	{ prefix: "e_v", frames: 4, extension: "gif", symmetric: true },
-	ENEMY_DEATH:{ prefix: "enemy_death", frames: 4, extension: "gif" }, // TODO: clean
+	SOFT_BLOCK:	{ frames: 7 },
+	MAN_UP: 	{ frames: 3 },
+	MAN_DOWN:	{ frames: 3 },
+	MAN_LEFT:	{ frames: 3 },
+	MAN_RIGHT:	{ frames: 3 },
+	MAN_DEATH:	{ frames: 7 },
+	BALOM_LD:	{ frames: 3 },
+	BALOM_RU:	{ frames: 3 },
+	BOMB:		{ frames: 4 },
+	EXPLO_C:	{ frames: 4, symmetric: true },
+	EXPLO_T:	{ frames: 4, symmetric: true },
+	EXPLO_B:	{ frames: 4, symmetric: true },
+	EXPLO_L:	{ frames: 4, symmetric: true },
+	EXPLO_R:	{ frames: 4, symmetric: true },
+	EXPLO_H:	{ frames: 4, symmetric: true },
+	EXPLO_V:	{ frames: 4, symmetric: true },
+	ENEMY_DEATH:{ frames: 4 }
 };
 var IMG_DATA = {
-	PERMA: 'permabrick.jpg',
+	HARD_BLOCK: 'hard_block.jpg',
 	BALOM_DEATH: 'balom_death.gif'
 };
 
@@ -103,10 +103,6 @@ var GameObject = (function () {
 			&& typeof grid_y !== 'undefined') {
 			this.setGridPosition(grid_x, grid_y);
 		}
-	};
-
-	GameObject.prototype.getImage = function () {
-		return this._image;
 	};
 
 	GameObject.prototype.setImage = function (image) {
@@ -171,11 +167,11 @@ var AnimatedObject = (function () {
 
 	function AnimatedObject(){
 		this._animation = null;
-		this._frame = 0;
 		this._ticks_per_frame = 0;
+		this._loop = true;
+		this._frame = 0;
 		this._ticks = 0;
 		this._should_animate = false;
-		this._loop = true;
 	};
 	
 	AnimatedObject.prototype = new GameObject;
@@ -215,27 +211,27 @@ var AnimatedObject = (function () {
 })();
 
 // Destroyable
-// = Animated > Destroyable > Brick/Moveable/Stateful
+// = Animated > Destroyable > SoftBlock/Moveable/Stateful
 // - has burn()
 
-var BrickObject = (function () {
+var SoftBlockObject = (function () {
 
-	function BrickObject(grid_x, grid_y) {
-		this._type = TYPE.BRICK;
+	function SoftBlockObject(grid_x, grid_y) {
+		this._type = TYPE.SOFT_BLOCK;
 		this._ticks_per_frame = 6;
-		this.setAnimation(ANI.BRICK, true);
+		this.setAnimation(ANI.SOFT_BLOCK, true);
 		this.setGridPosition(grid_x, grid_y);
 	};
 	
-	BrickObject.prototype = new AnimatedObject;
+	SoftBlockObject.prototype = new AnimatedObject;
 	
-	BrickObject.prototype.end = function () {
+	SoftBlockObject.prototype.end = function () {
 		grid[this._grid_x][this._grid_y] =
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
 		dying.splice(dying.indexOf(this), 1);
 	};
 	
-	BrickObject.prototype.burn = function () {
+	SoftBlockObject.prototype.burn = function () {
 		this._frame = 1;
 		this._should_animate = true;
 		// TODO: delay action by number of frames
@@ -245,7 +241,7 @@ var BrickObject = (function () {
 		dying.push(this);
 	};
 	
-	return BrickObject;
+	return SoftBlockObject;
 })();
 
 var FlameObject = (function () {
@@ -288,12 +284,8 @@ var Explosion = (function () {
 					this._flames.push(new FlameObject(target_x, target_y, type));
 				}
 				if (target.is(TYPE.BOMB)) {	target.burn(); }
-				if (target.is(TYPE.PERMA)) { hit = true; }
-				if (target.is(TYPE.BRICK)) {
-					hit = true;
-					target.burn();
-				}
-				if (target.is(TYPE.PLAYER)) {
+				if (target.is(TYPE.HARD_BLOCK)) { hit = true; }
+				if (target.is(TYPE.SOFT_BLOCK)) {
 					hit = true;
 					target.burn();
 				}
@@ -713,12 +705,12 @@ function preload() {
 		ANI[key] = [];
 		for (var frame = 0; frame < ANI_DATA[key].frames; frame++) {
 			ANI[key].push(new Image());
-			ANI[key][ANI[key].length - 1].src = ASSET_PATH + ANI_DATA[key].prefix + frame + '.' + ANI_DATA[key].extension;
+			ANI[key][ANI[key].length - 1].src = ASSET_PATH + key.toLowerCase() + frame + '.gif';
 		}
 		if (ANI_DATA[key].symmetric) {
 			for (var frame = ANI_DATA[key].frames - 2; frame >= 0; frame--) {
 				ANI[key].push(new Image());
-				ANI[key][ANI[key].length - 1].src = ASSET_PATH + ANI_DATA[key].prefix + frame + '.' + ANI_DATA[key].extension;
+				ANI[key][ANI[key].length - 1].src = ASSET_PATH + key.toLowerCase() + frame + '.gif';
 			}
 		}
 	});
@@ -745,14 +737,14 @@ function generateMap() {
 		for (y = 0; y < MAP_HEIGHT; y++){
 			if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1
 				|| (x % 2 == 0 && y % 2 == 0)){
-				// perma border and blocks
-				grid[x][y] = new GameObject(x, y, 'PERMA');
+				// hard block border and grid blocks
+				grid[x][y] = new GameObject(x, y, 'HARD_BLOCK');
 			} else if (x + y < 4 || Math.random() * 10 >= density) {
 				// empty space around starting position and by density
 				grid[x][y] = new GameObject(x, y, 'PASSABLE');
 			} else {
-				// generate destructible blocks
-				grid[x][y] = new BrickObject(x, y);
+				// generate soft blocks
+				grid[x][y] = new SoftBlockObject(x, y);
 			}
 		}	
 	}
