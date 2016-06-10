@@ -5,6 +5,7 @@ var DEFAULT_CANVAS_HEIGHT = 403;
 var CANVAS_WIDTH = 600;
 var CANVAS_HEIGHT = 403;
 var DEFAULT_MOVEMENT_SPEED = 1.5;
+var BALOM_MOVEMENT_SPEED = 0.5;
 var PLAYER_MOVEMENT_SPEED = 1.5;
 var BLOCK_WIDTH = 30;
 var BLOCK_HEIGHT = 26;
@@ -281,7 +282,9 @@ var Explosion = (function () {
 					var type = (direct[0])
 						? (i == yield) ? ['L', '', 'R'][1 + direct[0]] : 'H' 
 						: (i == yield) ? ['T', '', 'B'][1 + direct[1]] : 'V' 
-					this._flames.push(new FlameObject(target_x, target_y, type));
+					this._flames.push(
+						new FlameObject(target_x, target_y, type)
+					);
 				}
 				if (target.is(TYPE.BOMB)) {	target.burn(); }
 				if (target.is(TYPE.HARD_BLOCK)) { hit = true; }
@@ -323,16 +326,55 @@ var MovingObject = (function () {
 		this._movement_speed = DEFAULT_MOVEMENT_SPEED;
 		this._grid_x = 0;
 		this._grid_y = 0;	
-		this._direction_x = 0 ;
-		this._direction_y = 0;		
+		this._direction_x = 0;
+		this._direction_y = 0;
+		this._error_x = 0;
+		this._error_y = 0;
+		this._default_animation = null;
+		this._spawn_point = { x: null, y: null }
 	};
 		
 	MovingObject.prototype = new AnimatedObject;
 	
+	MovingObject.prototype.spawn = function () {
+		this._alive = true;
+		this.setAnimation(this._default_animation);
+		this.setGridPosition(this._spawn_point.x, this._spawn_point.y);
+	};
+	
 	MovingObject.prototype.move = function () {
+	
+		// align with grid
+		this._error_x = 0;
+		this._error_y = 0;
+		var grid_position = grid[this._grid_x][this._grid_y].getPosition();
+		if(this._direction_x) {
+			this._error_y = grid_position.y - this._y;
+			if(this._error_y) {
+				if(Math.abs(this._error_y) > this._movement_speed ) {
+					if(this._error_y < 0) {
+						this._error_y = -this._movement_speed;
+					} else {
+						this._error_y = this._movement_speed;
+					}
+				}
+			}
+		} else if(this._direction_y) {
+			this._error_x = grid_position.x - this._x;
+			if(this._error_x) {
+				if(Math.abs(this._error_x) > this._movement_speed ) {
+					if(this._error_x < 0) {
+						this._error_x = -this._movement_speed;
+					} else {
+						this._error_x = this._movement_speed;
+					}
+				}
+			}
+		}
+		
 		this.setPosition(
-			this._x + this._direction_x * this._movement_speed, 
-			this._y + this._direction_y * this._movement_speed
+			this._x + this._direction_x * this._movement_speed + this._error_x,
+			this._y + this._direction_y * this._movement_speed + this._error_y
 		);
 		this.updateGridPosition();
 	};
@@ -447,37 +489,64 @@ var BombObject = (function () {
 
 var Balom = (function () {
 	function Balom() {
-		this.spawn();
 		this._ticks_per_frame = 18;
-		this.setAnimation(ANI.BALOM_LD);
+		this._default_animation = ANI.BALOM_LD;
 		this._should_animate = true;
+		this._recently_acted = false;
+		this._spawn_point = findRandomPassable(8);
+		this.spawn();
 	};
 	
 	Balom.prototype = new MovingObject;
-	
-	Balom.prototype.spawn = function () {
-		this._alive = true;
-		var randomSpawn = this.findRandomPassable(8);
-		this.setGridPosition(randomSpawn.x, randomSpawn.y);
-	};
-	
-	Balom.prototype.findRandomPassable = function (min_distance_from_start) {
-		var passable = findPassable(min_distance_from_start);
-		return passable[Math.floor(Math.random() * passable.length)];
-	};
 	
 	Balom.prototype.isAlive = function () {
 		return this._alive;
 	};
 	
 	Balom.prototype.act = function () {
-		// !this._movement_speed
-			// should_do something
-		// aligned-ish_with_grid ?
-			// could do something
-		// if doing something
-			// collect direction options
-			// pick random
+		if (!this._alive) return;
+		var will_act = !this._movement_speed;
+		if (!will_act) {
+			if (this._recently_acted) { return; }
+			// aligned-ish_with_grid ?
+			var grid_position = grid[this._grid_x][this._grid_y].getPosition();
+			var error_x = 0;
+			var error_y = 0;
+			if (this._direction_x) {
+				error_x = grid_position.x - this._x;
+			}
+			if (this._direction_y) {
+				error_y = grid_position.y - this._y;
+			}
+			var could_act = Math.abs(error_x + error_y) <= this._movement_speed;
+			will_act = could_act && Math.random() < 0.05;
+		}
+		if (will_act) {
+			var options = [];
+			[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
+				if (
+					grid[this._grid_x + direct[0]][this._grid_y + direct[1]]
+						.is(TYPE.PASSABLE)
+				) {
+					options.push(direct);
+				}
+			}.bind(this));
+			var new_direction = (options.length)
+				? options[Math.floor(Math.random() * options.length)]
+				: [0,0];
+			this._direction_x = new_direction[0];
+			this._direction_y = new_direction[1];
+			this._movement_speed = BALOM_MOVEMENT_SPEED;
+			this._recently_acted = true;
+			this.setAnimation(
+				this._direction_x < 0 || this._direction_y > 0
+					? ANI.BALOM_LD
+					: ANI.BALOM_RU
+			);
+			setTimeout(
+				function () { this._recently_acted = false}.bind(this),	2000
+			);
+		}
 	};
 	
 	Balom.prototype.burn = function () {
@@ -507,18 +576,12 @@ var PlayerObject = (function () {
 
 	function PlayerObject(){
 		this._ticks_per_frame = 6;
+		this._default_animation = ANI.MAN_DOWN;
+		this._spawn_point = { x: 1, y: 1 };
 		this.spawn();
 	};
 
 	PlayerObject.prototype = new MovingObject;
-	
-	PlayerObject.prototype.spawn = function () {
-		this._x = start_x;
-		this._y = start_y;
-		this._movement_speed = 0;
-		this._alive = true;
-		this.setAnimation(ANI.MAN_DOWN);
-	};
 	
 	PlayerObject.prototype.end = function () {
 		this._should_animate = false;
@@ -535,10 +598,10 @@ var PlayerObject = (function () {
 	
 	PlayerObject.prototype.burn = function () {
 		if (!this._alive) return;
+		this._alive = false;
+		this._should_animate = true;
 		this._movement_speed = 0;
 		this.setAnimation(ANI.MAN_DEATH, true);
-		this._should_animate = true;
-		this._alive = false;
 	};
 	
 	PlayerObject.prototype.checkBurn = function () {
@@ -551,62 +614,24 @@ var PlayerObject = (function () {
 		}
 	};
 	
-	// overriding player move function to do scrolling and alignment stuff
-	PlayerObject.prototype.move = function () {
-  
-		// align player with grid
-		var error_x = 0;
-		var error_y = 0;
-		var grid_position = grid[this._grid_x][this._grid_y].getPosition();
-		if(this._direction_x) {
-			error_y = grid_position.y - this._y;
-			if(error_y) {
-				if(Math.abs(error_y) > this._movement_speed ) {
-					if(error_y < 0) {
-						error_y = -this._movement_speed;
-					} else {
-						error_y = this._movement_speed;
-					}
-				}
-			}
-		} else if(this._direction_y) {
-			error_x = grid_position.x - this._x;
-			if(error_x) {
-				if(Math.abs(error_x) > this._movement_speed ) {
-					if(error_x < 0) {
-						error_x = -this._movement_speed;
-					} else {
-						error_x = this._movement_speed;
-					}
-				}
-			}
-		}
-	  
-		// do scrolling stuff
-		if(CAN_SCROLL_X && (this._direction_x || error_x)) {
+	PlayerObject.prototype.scrollLevel = function () {
+		if(CAN_SCROLL_X && (this._direction_x || this._error_x)) {
 			// moving horizontally
 			scroll_offset_x =
 				this._x + this._movement_speed * this._direction_x
-				- SCROLL_MIN_X + error_x;
+				- SCROLL_MIN_X + this._error_x;
 			if(scroll_offset_x < 0) scroll_offset_x = 0;
 			if(scroll_offset_x > SCROLL_MAX_X) scroll_offset_x = SCROLL_MAX_X;
 		}
 	
-		if(CAN_SCROLL_Y && (this._direction_y || error_y)) {
+		if(CAN_SCROLL_Y && (this._direction_y || this._error_y)) {
 			// moving vertically
 			scroll_offset_y =
 				this._y + this._movement_speed * this._direction_y
-				- SCROLL_MIN_Y + error_y;
+				- SCROLL_MIN_Y + this._error_y;
 			if(scroll_offset_y < 0) scroll_offset_y = 0;
 			if(scroll_offset_y > SCROLL_MAX_Y) scroll_offset_y = SCROLL_MAX_Y;
 		}
-
-		// do the usual stuff in move();
-		this.setPosition(
-			this._x + this._direction_x * this._movement_speed + error_x,
-			this._y + this._direction_y * this._movement_speed + error_y
-		);
-		this.updateGridPosition();
 	};
    
 	PlayerObject.prototype.handleKeyPress = function (key_code) {
@@ -666,7 +691,12 @@ var PlayerObject = (function () {
 })();
 
 // TODO: grid management system?
-function findPassable (min_distance_from_start) {
+function findRandomPassable(min_distance_from_start) {
+	var passable = findPassable(min_distance_from_start);
+	return passable[Math.floor(Math.random() * passable.length)];
+};
+
+function findPassable(min_distance_from_start) {
 	var passable = [];
 	for (var i = 1; i < MAP_WIDTH - 1; i++) {
 		for (var j = 1; j < MAP_HEIGHT - 1; j++) {
@@ -705,12 +735,14 @@ function preload() {
 		ANI[key] = [];
 		for (var frame = 0; frame < ANI_DATA[key].frames; frame++) {
 			ANI[key].push(new Image());
-			ANI[key][ANI[key].length - 1].src = ASSET_PATH + key.toLowerCase() + frame + '.gif';
+			ANI[key][ANI[key].length - 1].src =
+				ASSET_PATH + key.toLowerCase() + frame + '.gif';
 		}
 		if (ANI_DATA[key].symmetric) {
 			for (var frame = ANI_DATA[key].frames - 2; frame >= 0; frame--) {
 				ANI[key].push(new Image());
-				ANI[key][ANI[key].length - 1].src = ASSET_PATH + key.toLowerCase() + frame + '.gif';
+				ANI[key][ANI[key].length - 1].src =
+					ASSET_PATH + key.toLowerCase() + frame + '.gif';
 			}
 		}
 	});
@@ -720,15 +752,19 @@ function sizeCanvas() {
 	var canvas = document.getElementById('canvas');
 	ctx = canvas.getContext('2d');
 	
-	canvas.height = CANVAS_HEIGHT = Math.min(window.innerHeight, MAX_CANVAS_HEIGHT);
+	CANVAS_HEIGHT = Math.min(window.innerHeight, MAX_CANVAS_HEIGHT);
+	canvas.height = CANVAS_HEIGHT;
 	var scale = canvas.height / DEFAULT_CANVAS_HEIGHT;
-	canvas.width = CANVAS_WIDTH = Math.min(window.innerWidth, MAP_WIDTH * BLOCK_WIDTH * scale);
+	CANVAS_WIDTH = Math.min(window.innerWidth, MAP_WIDTH * BLOCK_WIDTH * scale);
+	canvas.width = CANVAS_WIDTH;
 	ctx.scale(scale, scale);
 	
 	SCROLL_MIN_X = Math.round((CANVAS_WIDTH - BLOCK_WIDTH) * 0.5 / scale);
 	SCROLL_MAX_X = Math.round(MAP_WIDTH * BLOCK_WIDTH - CANVAS_WIDTH / scale);
 	SCROLL_MIN_Y = Math.round((CANVAS_HEIGHT - BLOCK_HEIGHT) * 0.5 / scale);
-	SCROLL_MAX_Y = Math.round(MAP_HEIGHT * BLOCK_HEIGHT + OFFSET_Y - CANVAS_HEIGHT / scale);
+	SCROLL_MAX_Y = Math.round(
+		MAP_HEIGHT * BLOCK_HEIGHT + OFFSET_Y - CANVAS_HEIGHT / scale
+	);
 }
 
 function generateMap() {
@@ -759,6 +795,7 @@ function spawnEnemies() {
 function gameloop(){
 	handleInput(key_press, keys_down);
 	key_press = [];
+	ai();
 	physics();
 	animate();
 	window.requestAnimationFrame(gameloop);
@@ -772,8 +809,13 @@ function handleInput(key_press, keys_down) {
 	player.handleKeysDown(keys_down);
 };
 
+function ai() {
+	for (i = 0; i < enemies.length; i++){ enemies[i].act(); }
+};
+
 function physics() {
 	player.physics();
+	player.scrollLevel();
 	for (i = 0; i < enemies.length; i++){ enemies[i].physics(); }
 };
 
