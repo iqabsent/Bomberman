@@ -78,8 +78,7 @@ var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_HEIGHT + OFFSET_Y;
 var grid = [];
 var bombs = [];
-var explosions = [];
-var dying = [];
+var live_objects = [];
 var enemies = [];
 var key_press = [];
 var keys_down = [];
@@ -229,7 +228,7 @@ var SoftBlockObject = (function () {
 	SoftBlockObject.prototype.end = function () {
 		grid[this._grid_x][this._grid_y] =
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
-		dying.splice(dying.indexOf(this), 1);
+		live_objects.splice(live_objects.indexOf(this), 1);
 	};
 	
 	SoftBlockObject.prototype.burn = function () {
@@ -239,7 +238,7 @@ var SoftBlockObject = (function () {
 		setTimeout(function () {
 			this.addType(TYPE.PASSABLE);
 		}.bind(this), 200);
-		dying.push(this);
+		live_objects.push(this);
 	};
 	
 	return SoftBlockObject;
@@ -314,7 +313,7 @@ var Explosion = (function () {
 	Explosion.prototype.end = function () {
 		this._flames.forEach(function (flame) { flame.end(); });
 		this._flames = null;
-		explosions.splice(explosions.indexOf(this),1);
+		live_objects.splice(live_objects.indexOf(this),1);
 	};
 	
 	return Explosion;
@@ -468,7 +467,7 @@ var BombObject = (function () {
 		this.setImage(IMG.NOTHING);
 		grid[this._grid_x][this._grid_y] =
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
-		explosions.push(new Explosion(this._grid_x, this._grid_y, yield));
+		live_objects.push(new Explosion(this._grid_x, this._grid_y, yield));
 	};
   
 	BombObject.prototype.burn = function () {
@@ -487,6 +486,25 @@ var BombObject = (function () {
 // = Stateful > Intelligent
 // - each state has associated behaviour
 
+var EnemyObject = (function () {
+	function EnemyObject() {
+	};
+	
+	EnemyObject.prototype = new MovingObject;
+	
+	EnemyObject.prototype.act = function () {} // To be overridden
+	
+	EnemyObject.prototype.isAlive = function () {
+		return this._alive;
+	};
+	
+	EnemyObject.prototype.end = function () {
+		enemies.splice(enemies.indexOf(this),1);
+	};
+	
+	return EnemyObject;
+})();
+
 var Balom = (function () {
 	function Balom() {
 		this._ticks_per_frame = 18;
@@ -497,11 +515,7 @@ var Balom = (function () {
 		this.spawn();
 	};
 	
-	Balom.prototype = new MovingObject;
-	
-	Balom.prototype.isAlive = function () {
-		return this._alive;
-	};
+	Balom.prototype = new EnemyObject;
 	
 	Balom.prototype.act = function () {
 		if (!this._alive) return;
@@ -562,10 +576,6 @@ var Balom = (function () {
 			1000
 		);
 		this.setImage(IMG.BALOM_DEATH);
-	};
-	
-	Balom.prototype.end = function () {
-		enemies.splice(enemies.indexOf(this),1);
 	};
 	
 	return Balom;
@@ -691,6 +701,7 @@ var PlayerObject = (function () {
 })();
 
 // TODO: grid management system?
+// TODO: live_object manager?
 function findRandomPassable(min_distance_from_start) {
 	var passable = findPassable(min_distance_from_start);
 	return passable[Math.floor(Math.random() * passable.length)];
@@ -826,9 +837,7 @@ function animate(){
 			bomb.animate();
 		}
 	});
-	// TODO: unify animated objects?
-	explosions.forEach(function (explosion) { explosion.animate(); });
-	dying.forEach(function (dying) { dying.animate(); });
+	for (i = 0; i < live_objects.length; i++){ live_objects[i].animate(); }
 	enemies.forEach(function (enemy) { enemy.animate(); });
 };
 
@@ -840,7 +849,7 @@ function draw(){
 		}
 	}
 	for (i = 0; i < bombs.length; i++){	bombs[i].draw(ctx);	}
-	for (i = 0; i < explosions.length; i++){ explosions[i].draw(ctx); }
+	for (i = 0; i < live_objects.length; i++){ live_objects[i].draw(ctx); }
 	for (i = 0; i < enemies.length; i++){ enemies[i].draw(ctx); }
 	player.draw(ctx);
 };
