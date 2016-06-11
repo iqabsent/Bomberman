@@ -488,6 +488,7 @@ var BombObject = (function () {
 
 var EnemyObject = (function () {
 	function EnemyObject() {
+		this._death_frame = null; // To be overridden
 	};
 	
 	EnemyObject.prototype = new MovingObject;
@@ -496,6 +497,18 @@ var EnemyObject = (function () {
 	
 	EnemyObject.prototype.isAlive = function () {
 		return this._alive;
+	};
+	
+	EnemyObject.prototype.burn = function () {
+		if (!this._alive) return;
+		this._alive = false;
+		this._should_animate = false;
+		this._movement_speed = 0;
+		setTimeout(function () {
+			this.setAnimation(ANI.ENEMY_DEATH, true);
+			this._should_animate = true;
+		}.bind(this), 1000);
+		this.setImage(this._death_frame);
 	};
 	
 	EnemyObject.prototype.end = function () {
@@ -509,6 +522,7 @@ var Balom = (function () {
 	function Balom() {
 		this._ticks_per_frame = 18;
 		this._default_animation = ANI.BALOM_LD;
+		this._death_frame = IMG.BALOM_DEATH;
 		this._should_animate = true;
 		this._recently_acted = false;
 		this._spawn_point = findRandomPassable(8);
@@ -561,21 +575,6 @@ var Balom = (function () {
 				function () { this._recently_acted = false}.bind(this),	2000
 			);
 		}
-	};
-	
-	Balom.prototype.burn = function () {
-		if (!this._alive) return;
-		this._alive = false;
-		this._should_animate = false;
-		this._movement_speed = 0;
-		setTimeout(
-			function () {
-				this._should_animate = true;
-				this.setAnimation(ANI.ENEMY_DEATH, true);
-			}.bind(this),
-			1000
-		);
-		this.setImage(IMG.BALOM_DEATH);
 	};
 	
 	return Balom;
