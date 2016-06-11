@@ -6,6 +6,7 @@ var CANVAS_WIDTH = 600;
 var CANVAS_HEIGHT = 403;
 var DEFAULT_MOVEMENT_SPEED = 1.5;
 var BALOM_MOVEMENT_SPEED = 0.5;
+var ONIL_MOVEMENT_SPEED = 1.0;
 var PLAYER_MOVEMENT_SPEED = 1.5;
 var BLOCK_WIDTH = 30;
 var BLOCK_HEIGHT = 26;
@@ -48,6 +49,8 @@ var ANI_DATA = {
 	MAN_DEATH:	{ frames: 7 },
 	BALOM_LD:	{ frames: 3 },
 	BALOM_RU:	{ frames: 3 },
+	ONIL_LD:	{ frames: 3 },
+	ONIL_RU:	{ frames: 3 },
 	BOMB:		{ frames: 4 },
 	EXPLO_C:	{ frames: 4, symmetric: true },
 	EXPLO_T:	{ frames: 4, symmetric: true },
@@ -60,7 +63,8 @@ var ANI_DATA = {
 };
 var IMG_DATA = {
 	HARD_BLOCK: 'hard_block.jpg',
-	BALOM_DEATH: 'balom_death.gif'
+	BALOM_DEATH: 'balom_death.gif',
+	ONIL_DEATH: 'onil_death.gif'
 };
 
 // image and animation instances - populated on preload()
@@ -132,7 +136,8 @@ var GameObject = (function () {
 		return {x:this._grid_x, y:this._grid_y};
 	};
 		
-	GameObject.prototype.draw = function (ctx) {	
+	GameObject.prototype.draw = function (ctx) {
+if(!this._image) console.log(this); // TODO: debug random bug
 		if (this._image.src)
 		ctx.drawImage(
 			this._image, this._x - scroll_offset_x,
@@ -194,6 +199,7 @@ var AnimatedObject = (function () {
 						this._frame = 0;
 					} else {
 						this.end();
+						return false;
 					}
 				}
 				this.setImage(this._animation[this._frame]);
@@ -488,15 +494,19 @@ var BombObject = (function () {
 
 var EnemyObject = (function () {
 	function EnemyObject() {
-		this._death_frame = null; // To be overridden
 	};
-	
-	EnemyObject.prototype = new MovingObject;
-	
-	EnemyObject.prototype.act = function () {} // To be overridden
+
+	EnemyObject.prototype = new MovingObject();
 	
 	EnemyObject.prototype.isAlive = function () {
 		return this._alive;
+	};
+	
+	EnemyObject.prototype.isAligned = function () {
+		var grid_position = grid[this._grid_x][this._grid_y].getPosition();
+		return Math.abs(
+			grid_position.x - this._x + grid_position.y - this._y
+		) <= this._movement_speed;
 	};
 	
 	EnemyObject.prototype.burn = function () {
@@ -515,69 +525,122 @@ var EnemyObject = (function () {
 		enemies.splice(enemies.indexOf(this),1);
 	};
 	
+	EnemyObject.prototype.checkTriggers = function () {
+		var action_options = this._action_triggers.filter(function (trigger) {
+			return trigger.check();
+		});
+		if (action_options.length) {
+			pickOne(action_options).action();
+			return true;
+		}
+		return false;
+	};
+	
+	EnemyObject.prototype.getRandomDirection = function () {
+		var options = [];
+		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direction){
+			if (
+				grid[this._grid_x + direction[0]][this._grid_y + direction[1]]
+					.is(TYPE.PASSABLE)
+			) {
+				options.push(direction);
+			}
+		}.bind(this));
+		return (options.length)	? pickOne(options) : [0,0];
+	};
+	
+	EnemyObject.prototype.moveDirection = function (direction) {
+		var new_direction = direction || this.getRandomDirection();
+		this._direction_x = new_direction[0];
+		this._direction_y = new_direction[1];
+		this._movement_speed = this._default_movement_speed;
+		this.setAnimation(
+			this._direction_x < 0 || this._direction_y > 0
+				? this._left_down_animation
+				: this._right_up_animation
+		);
+	};
+	
+	EnemyObject.prototype.act = function () {
+		if (!this._alive) return;
+		if (this.checkTriggers()) {
+			this._recently_acted = true;
+			setTimeout(
+				function () { this._recently_acted = false }.bind(this),
+				this._action_debounce
+			);
+		}
+	};
+	
 	return EnemyObject;
 })();
 
 var Balom = (function () {
 	function Balom() {
-		this._ticks_per_frame = 18;
+		this._default_movement_speed = BALOM_MOVEMENT_SPEED;
 		this._default_animation = ANI.BALOM_LD;
+		this._left_down_animation = ANI.BALOM_LD;
+		this._right_up_animation = ANI.BALOM_RU;
+		this._ticks_per_frame = 18;
 		this._death_frame = IMG.BALOM_DEATH;
 		this._should_animate = true;
 		this._recently_acted = false;
+		this._action_debounce = 2000;
+		this._action_frequency = 0.05;
 		this._spawn_point = findRandomPassable(8);
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
 		this.spawn();
 	};
 	
-	Balom.prototype = new EnemyObject;
-	
-	Balom.prototype.act = function () {
-		if (!this._alive) return;
-		var will_act = !this._movement_speed;
-		if (!will_act) {
-			if (this._recently_acted) { return; }
-			// aligned-ish_with_grid ?
-			var grid_position = grid[this._grid_x][this._grid_y].getPosition();
-			var error_x = 0;
-			var error_y = 0;
-			if (this._direction_x) {
-				error_x = grid_position.x - this._x;
-			}
-			if (this._direction_y) {
-				error_y = grid_position.y - this._y;
-			}
-			var could_act = Math.abs(error_x + error_y) <= this._movement_speed;
-			will_act = could_act && Math.random() < 0.05;
-		}
-		if (will_act) {
-			var options = [];
-			[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
-				if (
-					grid[this._grid_x + direct[0]][this._grid_y + direct[1]]
-						.is(TYPE.PASSABLE)
-				) {
-					options.push(direct);
-				}
-			}.bind(this));
-			var new_direction = (options.length)
-				? options[Math.floor(Math.random() * options.length)]
-				: [0,0];
-			this._direction_x = new_direction[0];
-			this._direction_y = new_direction[1];
-			this._movement_speed = BALOM_MOVEMENT_SPEED;
-			this._recently_acted = true;
-			this.setAnimation(
-				this._direction_x < 0 || this._direction_y > 0
-					? ANI.BALOM_LD
-					: ANI.BALOM_RU
-			);
-			setTimeout(
-				function () { this._recently_acted = false}.bind(this),	2000
-			);
-		}
-	};
+	Balom.prototype = new EnemyObject();
 	
 	return Balom;
+})();
+
+var Onil = (function () {
+	function Onil() {
+		this._default_movement_speed = ONIL_MOVEMENT_SPEED;
+		this._default_animation = ANI.ONIL_LD;
+		this._left_down_animation = ANI.ONIL_LD;
+		this._right_up_animation = ANI.ONIL_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.ONIL_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._action_debounce = 500;
+		this._action_frequency = 0.1;
+		this._spawn_point = findRandomPassable(16);
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Onil.prototype = new EnemyObject;
+	
+	return Onil;
 })();
 
 // TODO: Player >> Stateful?
@@ -703,7 +766,7 @@ var PlayerObject = (function () {
 // TODO: live_object manager?
 function findRandomPassable(min_distance_from_start) {
 	var passable = findPassable(min_distance_from_start);
-	return passable[Math.floor(Math.random() * passable.length)];
+	return pickOne(passable);
 };
 
 function findPassable(min_distance_from_start) {
@@ -799,6 +862,7 @@ function generateMap() {
 function spawnEnemies() {
 	for (var i = 0; i < 5; i++) {
 		enemies.push(new Balom());
+		enemies.push(new Onil());
 	}
 };
 	
@@ -836,8 +900,8 @@ function animate(){
 			bomb.animate();
 		}
 	});
-	for (i = 0; i < live_objects.length; i++){ live_objects[i].animate(); }
-	enemies.forEach(function (enemy) { enemy.animate(); });
+	for (i = live_objects.length; i; i--){ live_objects[i - 1].animate(); }
+	for (i = enemies.length; i; i--){ enemies[i - 1].animate(); }
 };
 
 function draw(){
@@ -847,7 +911,7 @@ function draw(){
 			grid[x][y].draw(ctx);
 		}
 	}
-	for (i = 0; i < bombs.length; i++){	bombs[i].draw(ctx);	}
+	for (i = 0; i < bombs.length; i++){ bombs[i].draw(ctx);	}
 	for (i = 0; i < live_objects.length; i++){ live_objects[i].draw(ctx); }
 	for (i = 0; i < enemies.length; i++){ enemies[i].draw(ctx); }
 	player.draw(ctx);
@@ -966,3 +1030,10 @@ window.addEventListener('touchend', function (event) {
 window.addEventListener('touchmove', function (event) {
 	point.moved(event.touches[0].pageX, event.touches[0].pageY);
 }, false);
+
+// utility functions
+function pickOne(array) {
+	return (array.length)
+		? array[Math.floor(Math.random() * array.length)]
+		: null;
+}
