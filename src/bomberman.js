@@ -15,7 +15,7 @@ var MAP_HEIGHT = 13;
 var OFFSET_X = 0;
 var OFFSET_Y = 65;
 var DRAG_TOLERANCE = 30;
-var BOOM_TIME = 2600;
+var BOMB_FUSE_TIME = 9; // in frames
 var MAX_BOMBS = 10;
 var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
 var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
@@ -178,6 +178,7 @@ var AnimatedObject = (function () {
 		this._frame = 0;
 		this._ticks = 0;
 		this._should_animate = false;
+		this._queued_actions = [];
 	};
 	
 	AnimatedObject.prototype = new GameObject;
@@ -206,11 +207,55 @@ var AnimatedObject = (function () {
 				this.setImage(this._animation[this._frame]);
 			}
 		}
+		// tick down queued actions
+		for (var i = this._queued_actions.length; i; i--) {
+			if(--this._queued_actions[i - 1].ticks_left <= 0) {
+				this.trigger(this._queued_actions[i - 1].key);
+				this._queued_actions.splice(i - 1, 1);
+			}
+		}
 		return this._should_animate; // to detect ended animations
 	};
 	
-	AnimatedObject.prototype.end = function () {
+	AnimatedObject.prototype.queue = function (key, frames, override_existing) {
+		// check if action is already queued
+		var queued = this._queued_actions.find(function (action) {
+			return action.key == key;
+		});
+		if (!queued) {
+			// queue action
+			this._queued_actions.push({
+				key: key,	// key should match a switch in trigger()
+				ticks_left: parseFloat(frames * this._ticks_per_frame, 10)
+			});
+		} else if (override_existing) {
+			queued.ticks_left = parseFloat(frames * this._ticks_per_frame, 10);
+		}
+		queued = null;
+	};
+	
+	AnimatedObject.prototype.dequeue = function (key) {
+		var queued = this._queued_actions.find(function (action) {
+			return action.key == key;
+		});
+		if (queued) {
+			this._queued_actions.splice(
+				this._queued_actions.indexOf(queued),
+				1
+			);
+		}
+		queued = null;
+	};
+	
+	AnimatedObject.prototype.trigger = function (key) {
+		switch (key) {
+			default: console.warn('no action bound to ' + key)
+		};
+	};
+	
+	AnimatedObject.prototype.end = function () {	
 		this._should_animate = false;
+		this._queued_actions = null;
 	};
 	
 	return AnimatedObject;
@@ -241,9 +286,15 @@ var SoftBlockObject = (function () {
 	SoftBlockObject.prototype.burn = function () {
 		this._frame = 1;
 		this._should_animate = true;
-		// TODO: delay action by number of frames
-		setTimeout(this.becomePassable.bind(this), 200);
+		this.queue('becomePassable', 3);
 		live_objects.push(this);
+	};
+	
+	SoftBlockObject.prototype.trigger = function (key) {
+		switch (key) {
+			case 'becomePassable': this.becomePassable(); break;
+			default: console.warn('no action bound to ' + key);
+		};
 	};
 	
 	SoftBlockObject.prototype.becomePassable = function () {
@@ -266,6 +317,7 @@ var FlameObject = (function () {
 	FlameObject.prototype = new AnimatedObject;
 	
 	FlameObject.prototype.end = function () {
+
 		this._should_animate = false;
 		grid[this._grid_x][this._grid_y].removeType(TYPE.EXPLOSION);
 	};
@@ -280,6 +332,7 @@ var Explosion = (function () {
 		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
 		for (var d = 0; d < DIRECTIONS.length; d++) {
 			var direct = DIRECTIONS[d];
+
 			var hit = false;
 			for (var i = 1; !hit && i <= yield; i++) {
 				var target_x = grid_x + direct[0] * i;
@@ -302,6 +355,7 @@ var Explosion = (function () {
 				}
 			}
 		}
+
 	};
 	
 	Explosion.prototype.animate = function () {
@@ -433,6 +487,7 @@ var BombObject = (function () {
 		this.setAnimation(ANI.BOMB);
 		this._enabled = false;
 		this._ticks_per_frame = 18;
+		this._queued_actions = [];
 	};
 		
 	BombObject.prototype = new AnimatedObject;
@@ -456,11 +511,11 @@ var BombObject = (function () {
 	};
   
 	BombObject.prototype.stopTimer = function (){
-		clearTimeout(this._timer);
+		this.dequeue('explode');
 	};
   
 	BombObject.prototype.startTimer = function (){
-		this._timer = setTimeout(this.explode.bind(this), BOOM_TIME);
+		this.queue('explode', BOMB_FUSE_TIME);
 	};
   
 	BombObject.prototype.plant = function (grid_x, grid_y){
@@ -481,7 +536,14 @@ var BombObject = (function () {
   
 	BombObject.prototype.burn = function () {
 		this.stopTimer();
-		this._timer = setTimeout(this.explode.bind(this), 100);
+		this.queue('explode', 0.5);
+	};
+	
+	BombObject.prototype.trigger = function (key) {
+		switch (key) {
+			case 'explode': this.explode(); break;
+			default: console.warn('no action bound to ' + key);
+		};
 	};
   
 	return BombObject;
@@ -522,7 +584,7 @@ var EnemyObject = (function () {
 		this._alive = false;
 		this._should_animate = false;
 		this._movement_speed = 0;
-		setTimeout(this.startDeathAnimation.bind(this), 1000);
+		this.queue('startDeathAnimation', 5);
 		this.setImage(this._death_frame);
 	};
 	
@@ -547,13 +609,17 @@ var EnemyObject = (function () {
 		var position = this.getGridPosition();
 		var options = [];
 		for (var i = 0; i < DIRECTIONS.length; i++) {
+
 			if (grid
 					[position.x + DIRECTIONS[i][0]]
 					[position.y + DIRECTIONS[i][1]].is(TYPE.PASSABLE)) {
+
+
 				options.push(i);
 			}
 		}
 		var random_direction = [0,0];
+
 		if (options.length) {
 			random_direction = DIRECTIONS[pickOne(options)];	
 		}
@@ -577,11 +643,16 @@ var EnemyObject = (function () {
 		if (!this._alive) return;
 		if (this.checkTriggers()) {
 			this._recently_acted = true;
-			setTimeout(
-				this.endActionDebounce.bind(this),
-				this._action_debounce
-			);
+			this.queue('endActionDebounce', this._frames_between_actions);
 		}
+	};
+	
+	EnemyObject.prototype.trigger = function (key) {
+		switch (key) {
+			case 'endActionDebounce': this.endActionDebounce(); break;
+			case 'startDeathAnimation': this.startDeathAnimation(); break;
+			default: console.warn('no action bound to ' + key);
+		};
 	};
 	
 	EnemyObject.prototype.endActionDebounce = function () {
@@ -601,9 +672,10 @@ var Balom = (function () {
 		this._death_frame = IMG.BALOM_DEATH;
 		this._should_animate = true;
 		this._recently_acted = false;
-		this._action_debounce = 200;
+		this._frames_between_actions = 5;
 		this._action_frequency = 0.08;
 		this._spawn_point = findRandomPassable(8);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
 		this._action_triggers = [
 			{
 				check: function () {
@@ -635,9 +707,10 @@ var Onil = (function () {
 		this._death_frame = IMG.ONIL_DEATH;
 		this._should_animate = true;
 		this._recently_acted = false;
-		this._action_debounce = 100;
+		this._frames_between_actions = 2;
 		this._action_frequency = 0.12;
 		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
 		this._action_triggers = [
 			{
 				check: function () {
@@ -880,22 +953,24 @@ function generateMap() {
 function spawnEnemies() {
 	for (var i = 0; i < 5; i++) {
 		enemies.push(new Balom());
-		enemies.push(new Onil());
+		//enemies.push(new Onil());
 	}
 };
 
-function hud() {
+function hud(fps) {
 	ctx.font = '14px monospace';
 	ctx.fillStyle = 'white';
 	ctx.fillText(
 		"Tap left edge of screen (on touch device), or S on keyboard to plant bomb!",
 		20, 35
 	);
+	ctx.fillText(Math.round(fps), 0, 10);
 };
 
 /* for framerate */
 var lastCalledTime = null;
 var fps = 60;
+
 
 function gameloop(){
 	handleInput(key_press, keys_down);
@@ -905,8 +980,18 @@ function gameloop(){
 	animate();
 	window.requestAnimationFrame(gameloop);
 	draw();
-
-	// temporary reset
+	
+	if(!lastCalledTime) {
+		lastCalledTime = Date.now();
+		fps = 0;
+		return;
+	}
+	delta = (Date.now() - lastCalledTime)/1000;
+	lastCalledTime = Date.now();
+	fps = 1/delta;
+	hud(fps);
+	
+	//randomBomb();
 	if (!enemies.length) {
 		player = new PlayerObject();
 		generateMap();
@@ -914,6 +999,16 @@ function gameloop(){
 		scroll_offset_x = 0;
 	}
 };
+
+function randomBomb() {
+	var random = findRandomPassable();
+	for (i = 0; i < bombs.length; i++) {
+		if(!bombs[i].isEnabled()) {
+			bombs[i].plant(random.x, random.y);
+			break;
+		}
+	}
+}
 
 function handleInput(key_press, keys_down) {
 	key_press.forEach(function (value, index) {
