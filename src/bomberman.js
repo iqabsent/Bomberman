@@ -19,6 +19,7 @@ var BOOM_TIME = 2600;
 var MAX_BOMBS = 10;
 var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
 var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
+var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 // enums / flags
 var TYPE = {
@@ -241,10 +242,12 @@ var SoftBlockObject = (function () {
 		this._frame = 1;
 		this._should_animate = true;
 		// TODO: delay action by number of frames
-		setTimeout(function () {
-			this.addType(TYPE.PASSABLE);
-		}.bind(this), 200);
+		setTimeout(this.becomePassable.bind(this), 200);
 		live_objects.push(this);
+	};
+	
+	SoftBlockObject.prototype.becomePassable = function () {
+		this.addType(TYPE.PASSABLE);
 	};
 	
 	return SoftBlockObject;
@@ -263,7 +266,6 @@ var FlameObject = (function () {
 	FlameObject.prototype = new AnimatedObject;
 	
 	FlameObject.prototype.end = function () {
-		// TODO: proper clean-up on all objects?
 		this._should_animate = false;
 		grid[this._grid_x][this._grid_y].removeType(TYPE.EXPLOSION);
 	};
@@ -276,7 +278,8 @@ var Explosion = (function () {
 	function Explosion(grid_x, grid_y, yield){
 		this._flames = []; // for animating and drawing
 		this._flames.push(new FlameObject(grid_x, grid_y, 'C'));
-		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direct){
+		for (var d = 0; d < DIRECTIONS.length; d++) {
+			var direct = DIRECTIONS[d];
 			var hit = false;
 			for (var i = 1; !hit && i <= yield; i++) {
 				var target_x = grid_x + direct[0] * i;
@@ -286,7 +289,7 @@ var Explosion = (function () {
 				if (target.is(TYPE.PASSABLE)) {
 					var type = (direct[0])
 						? (i == yield) ? ['L', '', 'R'][1 + direct[0]] : 'H' 
-						: (i == yield) ? ['T', '', 'B'][1 + direct[1]] : 'V' 
+						: (i == yield) ? ['T', '', 'B'][1 + direct[1]] : 'V';
 					this._flames.push(
 						new FlameObject(target_x, target_y, type)
 					);
@@ -298,7 +301,7 @@ var Explosion = (function () {
 					target.burn();
 				}
 			}
-		}, this)
+		}
 	};
 	
 	Explosion.prototype.animate = function () {
@@ -509,15 +512,17 @@ var EnemyObject = (function () {
 		) <= this._movement_speed;
 	};
 	
+	EnemyObject.prototype.startDeathAnimation = function () {
+		this.setAnimation(ANI.ENEMY_DEATH, true);
+		this._should_animate = true;
+	};
+	
 	EnemyObject.prototype.burn = function () {
 		if (!this._alive) return;
 		this._alive = false;
 		this._should_animate = false;
 		this._movement_speed = 0;
-		setTimeout(function () {
-			this.setAnimation(ANI.ENEMY_DEATH, true);
-			this._should_animate = true;
-		}.bind(this), 1000);
+		setTimeout(this.startDeathAnimation.bind(this), 1000);
 		this.setImage(this._death_frame);
 	};
 	
@@ -531,22 +536,29 @@ var EnemyObject = (function () {
 		});
 		if (action_options.length) {
 			pickOne(action_options).action();
+			action_options = null;
 			return true;
 		}
+		action_options = null;
 		return false;
 	};
 	
 	EnemyObject.prototype.getRandomDirection = function () {
+		var position = this.getGridPosition();
 		var options = [];
-		[[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(function (direction){
-			if (
-				grid[this._grid_x + direction[0]][this._grid_y + direction[1]]
-					.is(TYPE.PASSABLE)
-			) {
-				options.push(direction);
+		for (var i = 0; i < DIRECTIONS.length; i++) {
+			if (grid
+					[position.x + DIRECTIONS[i][0]]
+					[position.y + DIRECTIONS[i][1]].is(TYPE.PASSABLE)) {
+				options.push(i);
 			}
-		}.bind(this));
-		return (options.length)	? pickOne(options) : [0,0];
+		}
+		var random_direction = [0,0];
+		if (options.length) {
+			random_direction = DIRECTIONS[pickOne(options)];	
+		}
+		options = null;
+		return random_direction;
 	};
 	
 	EnemyObject.prototype.moveDirection = function (direction) {
@@ -566,10 +578,14 @@ var EnemyObject = (function () {
 		if (this.checkTriggers()) {
 			this._recently_acted = true;
 			setTimeout(
-				function () { this._recently_acted = false }.bind(this),
+				this.endActionDebounce.bind(this),
 				this._action_debounce
 			);
 		}
+	};
+	
+	EnemyObject.prototype.endActionDebounce = function () {
+		this._recently_acted = false;
 	};
 	
 	return EnemyObject;
@@ -585,8 +601,8 @@ var Balom = (function () {
 		this._death_frame = IMG.BALOM_DEATH;
 		this._should_animate = true;
 		this._recently_acted = false;
-		this._action_debounce = 2000;
-		this._action_frequency = 0.05;
+		this._action_debounce = 200;
+		this._action_frequency = 0.08;
 		this._spawn_point = findRandomPassable(8);
 		this._action_triggers = [
 			{
@@ -619,8 +635,8 @@ var Onil = (function () {
 		this._death_frame = IMG.ONIL_DEATH;
 		this._should_animate = true;
 		this._recently_acted = false;
-		this._action_debounce = 500;
-		this._action_frequency = 0.1;
+		this._action_debounce = 100;
+		this._action_frequency = 0.12;
 		this._spawn_point = findRandomPassable(16);
 		this._action_triggers = [
 			{
@@ -766,7 +782,9 @@ var PlayerObject = (function () {
 // TODO: live_object manager?
 function findRandomPassable(min_distance_from_start) {
 	var passable = findPassable(min_distance_from_start);
-	return pickOne(passable);
+	var random_passable = pickOne(passable);
+	passable = null;
+	return random_passable;
 };
 
 function findPassable(min_distance_from_start) {
@@ -865,7 +883,20 @@ function spawnEnemies() {
 		enemies.push(new Onil());
 	}
 };
-	
+
+function hud() {
+	ctx.font = '14px monospace';
+	ctx.fillStyle = 'white';
+	ctx.fillText(
+		"Tap left edge of screen (on touch device), or S on keyboard to plant bomb!",
+		20, 35
+	);
+};
+
+/* for framerate */
+var lastCalledTime = null;
+var fps = 60;
+
 function gameloop(){
 	handleInput(key_press, keys_down);
 	key_press = [];
@@ -874,6 +905,14 @@ function gameloop(){
 	animate();
 	window.requestAnimationFrame(gameloop);
 	draw();
+
+	// temporary reset
+	if (!enemies.length) {
+		player = new PlayerObject();
+		generateMap();
+		spawnEnemies();
+		scroll_offset_x = 0;
+	}
 };
 
 function handleInput(key_press, keys_down) {
