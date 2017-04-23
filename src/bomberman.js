@@ -7,6 +7,12 @@ var CANVAS_HEIGHT = 403;
 var DEFAULT_MOVEMENT_SPEED = 1.5;
 var BALOM_MOVEMENT_SPEED = 0.5;
 var ONIL_MOVEMENT_SPEED = 1.0;
+var DAHL_MOVEMENT_SPEED = 1.0;
+var MINVO_MOVEMENT_SPEED = 1.0;
+var DORIA_MOVEMENT_SPEED = 0.3;
+var OVAPE_MOVEMENT_SPEED = 1.0;
+var PASS_MOVEMENT_SPEED = 1.2;
+var PONTAN_MOVEMENT_SPEED = 1.0;
 var PLAYER_MOVEMENT_SPEED = 1.5;
 var BLOCK_WIDTH = 30;
 var BLOCK_HEIGHT = 26;
@@ -20,6 +26,7 @@ var MAX_BOMBS = 10;
 var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
 var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+var DEFAULT_LIVES = 3;
 
 // enums / flags
 var TYPE = {
@@ -30,13 +37,20 @@ var TYPE = {
 	BOMB: 8,
 	EXPLOSION: 16
 };
+var STATE = {
+	ERROR: 0,
+	LOADING: 1, 
+	PLAYING: 2,
+	PAUSED: 4
+};
 var KEY = {
 	UP: 38,
 	DOWN: 40,
 	LEFT: 37,
 	RIGHT: 39,
 	W: 87,
-	S: 83,	
+	S: 83,
+	ENTER: 13
 }
 
 // image and animation info
@@ -52,6 +66,18 @@ var ANI_DATA = {
 	BALOM_RU:	{ frames: 3 },
 	ONIL_LD:	{ frames: 3 },
 	ONIL_RU:	{ frames: 3 },
+	DAHL_LD:	{ frames: 3 },
+	DAHL_RU:	{ frames: 3 },
+	MINVO_LD:	{ frames: 3 },
+	MINVO_RU:	{ frames: 3 },
+	DORIA_LD:	{ frames: 3 },
+	DORIA_RU:	{ frames: 3 },
+	OVAPE_LD:	{ frames: 3 },
+	OVAPE_RU:	{ frames: 3 },
+	PASS_LD:	{ frames: 3 },
+	PASS_RU:	{ frames: 3 },
+	PONTAN_LD:	{ frames: 4 },
+	PONTAN_RU:	{ frames: 4 },
 	BOMB:		{ frames: 4 },
 	EXPLO_C:	{ frames: 4, symmetric: true },
 	EXPLO_T:	{ frames: 4, symmetric: true },
@@ -65,7 +91,14 @@ var ANI_DATA = {
 var IMG_DATA = {
 	HARD_BLOCK: 'hard_block.jpg',
 	BALOM_DEATH: 'balom_death.gif',
-	ONIL_DEATH: 'onil_death.gif'
+	ONIL_DEATH: 'onil_death.gif',
+	DAHL_DEATH: 'dahl_death.gif',
+	MINVO_DEATH: 'minvo_death.gif',
+	DORIA_DEATH: 'doria_death.gif',
+	OVAPE_DEATH: 'ovape_death.gif',
+	PASS_DEATH: 'pass_death.gif',
+	PONTAN_DEATH: 'pontan_death.gif',
+	DOOR: 'door.gif'
 };
 
 // image and animation instances - populated on preload()
@@ -96,6 +129,9 @@ var yield = 2;
 var last_press_fake = false; // used to distinguish touch/keyboard behaviour
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
+var game_state = STATE.ERROR;
+var door_spawned = false;
+var soft_block_count = 0;
 
 var GameObject = (function () {
 
@@ -162,7 +198,7 @@ if(!this._image) console.log(this); // TODO: debug random bug
 	};
 	
 	GameObject.prototype.is = function (type){
-		return this._type & type;		
+		return this._type & type;
 	};
 
 	return GameObject;
@@ -284,10 +320,22 @@ var SoftBlockObject = (function () {
 	};
 	
 	SoftBlockObject.prototype.burn = function () {
-		this._frame = 1;
-		this._should_animate = true;
-		this.queue('becomePassable', 3);
-		live_objects.push(this);
+		// track soft block count to use as odds for door spawning
+		if (soft_block_count) { soft_block_count--; }
+		if (!door_spawned
+			&& (!soft_block_count || Math.random() < 1/soft_block_count)
+		) {
+			//spawn door
+			door_spawned = true;
+			grid[this._grid_x][this._grid_y] =
+				new DoorObject(this._grid_x, this._grid_y);
+		} else {
+			// just burn soft block
+			this._frame = 1;
+			this._should_animate = true;
+			this.queue('becomePassable', 3);
+			live_objects.push(this);
+		}
 	};
 	
 	SoftBlockObject.prototype.trigger = function (key) {
@@ -302,6 +350,18 @@ var SoftBlockObject = (function () {
 	};
 	
 	return SoftBlockObject;
+})();
+
+var DoorObject = (function () {
+	function DoorObject(grid_x, grid_y) {
+		this._type = TYPE.DOOR|TYPE.PASSABLE;
+		this._image = IMG.DOOR;
+		this.setGridPosition(grid_x, grid_y);
+	};
+	
+	DoorObject.prototype = new GameObject;
+	
+	return DoorObject;
 })();
 
 var FlameObject = (function () {
@@ -394,6 +454,7 @@ var MovingObject = (function () {
 		this._error_y = 0;
 		this._default_animation = null;
 		this._spawn_point = { x: null, y: null }
+		this._can_pass = TYPE.PASSABLE;
 	};
 		
 	MovingObject.prototype = new AnimatedObject;
@@ -453,7 +514,7 @@ var MovingObject = (function () {
 			[this._grid_x + this._direction_x]
 			[this._grid_y + this._direction_y];
 		
-		if(!target.is(TYPE.PASSABLE)) {
+		if(!target.is(this._can_pass)) {
 			if (this._direction_x
 				&& Math.abs(this._x + this._movement_speed * this._direction_x
 					- target.getPosition().x) < BLOCK_WIDTH
@@ -589,6 +650,8 @@ var EnemyObject = (function () {
 	};
 	
 	EnemyObject.prototype.end = function () {
+		this._action_triggers = null;
+		this._queued_actions = null;
 		enemies.splice(enemies.indexOf(this),1);
 	};
 	
@@ -612,14 +675,11 @@ var EnemyObject = (function () {
 
 			if (grid
 					[position.x + DIRECTIONS[i][0]]
-					[position.y + DIRECTIONS[i][1]].is(TYPE.PASSABLE)) {
-
-
+					[position.y + DIRECTIONS[i][1]].is(this._can_pass)) {
 				options.push(i);
 			}
 		}
 		var random_direction = [0,0];
-
 		if (options.length) {
 			random_direction = DIRECTIONS[pickOne(options)];	
 		}
@@ -660,6 +720,16 @@ var EnemyObject = (function () {
 	};
 	
 	return EnemyObject;
+})();
+
+var GhostObject = (function () {
+	function GhostObject() {
+		this._can_pass = TYPE.PASSABLE|TYPE.SOFT_BLOCK;
+	};
+	
+	GhostObject.prototype = new EnemyObject;
+	
+	return GhostObject;
 })();
 
 var Balom = (function () {
@@ -732,6 +802,216 @@ var Onil = (function () {
 	return Onil;
 })();
 
+var Dahl = (function () {
+	function Dahl() {
+		this._default_movement_speed = DAHL_MOVEMENT_SPEED;
+		this._default_animation = ANI.DAHL_LD;
+		this._left_down_animation = ANI.DAHL_LD;
+		this._right_up_animation = ANI.DAHL_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.DAHL_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._frames_between_actions = 2;
+		this._action_frequency = 0.12;
+		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Dahl.prototype = new EnemyObject;
+	
+	return Dahl;
+})();
+
+var Minvo = (function () {
+	function Minvo() {
+		this._default_movement_speed = MINVO_MOVEMENT_SPEED;
+		this._default_animation = ANI.MINVO_LD;
+		this._left_down_animation = ANI.MINVO_LD;
+		this._right_up_animation = ANI.MINVO_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.MINVO_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._frames_between_actions = 2;
+		this._action_frequency = 0.12;
+		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Minvo.prototype = new EnemyObject;
+	
+	return Minvo;
+})();
+
+var Doria = (function () {
+	function Doria() {
+		this._default_movement_speed = DORIA_MOVEMENT_SPEED;
+		this._default_animation = ANI.DORIA_LD;
+		this._left_down_animation = ANI.DORIA_LD;
+		this._right_up_animation = ANI.DORIA_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.DORIA_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._frames_between_actions = 2;
+		this._action_frequency = 0.12;
+		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Doria.prototype = new GhostObject;
+	
+	return Doria;
+})();
+
+var Ovape = (function () {
+	function Ovape() {
+		this._default_movement_speed = OVAPE_MOVEMENT_SPEED;
+		this._default_animation = ANI.OVAPE_LD;
+		this._left_down_animation = ANI.OVAPE_LD;
+		this._right_up_animation = ANI.OVAPE_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.OVAPE_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._frames_between_actions = 2;
+		this._action_frequency = 0.12;
+		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Ovape.prototype = new GhostObject;
+	
+	return Ovape;
+})();
+
+var Pass = (function () {
+	function Pass() {
+		this._default_movement_speed = PASS_MOVEMENT_SPEED;
+		this._default_animation = ANI.PASS_LD;
+		this._left_down_animation = ANI.PASS_LD;
+		this._right_up_animation = ANI.PASS_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.PASS_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._frames_between_actions = 2;
+		this._action_frequency = 0.12;
+		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Pass.prototype = new EnemyObject;
+	
+	return Pass;
+})();
+
+var Pontan = (function () {
+	function Pontan() {
+		this._default_movement_speed = PONTAN_MOVEMENT_SPEED;
+		this._default_animation = ANI.PONTAN_LD;
+		this._left_down_animation = ANI.PONTAN_LD;
+		this._right_up_animation = ANI.PONTAN_RU;
+		this._ticks_per_frame = 18;
+		this._death_frame = IMG.PONTAN_DEATH;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._frames_between_actions = 2;
+		this._action_frequency = 0.12;
+		this._spawn_point = findRandomPassable(16);
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
+	};
+	
+	Pontan.prototype = new GhostObject;
+	
+	return Pontan;
+})();
+
 // TODO: Player >> Stateful?
 var PlayerObject = (function () {
 
@@ -739,10 +1019,22 @@ var PlayerObject = (function () {
 		this._ticks_per_frame = 6;
 		this._default_animation = ANI.MAN_DOWN;
 		this._spawn_point = { x: 1, y: 1 };
+		this._lives = DEFAULT_LIVES;
 		this.spawn();
 	};
 
 	PlayerObject.prototype = new MovingObject;
+	
+	PlayerObject.prototype.spawn = function () {
+		this._alive = true;
+		this.setAnimation(this._default_animation);
+		this.setGridPosition(this._spawn_point.x, this._spawn_point.y);
+		if (this._lives) { this._lives--; }
+	};
+	
+	PlayerObject.prototype.getLives = function () {
+		return this._lives;
+	};
 	
 	PlayerObject.prototype.end = function () {
 		this._should_animate = false;
@@ -851,6 +1143,51 @@ var PlayerObject = (function () {
 	return PlayerObject;
 })();
 
+var Hud = (function () {
+
+	function Hud() {};
+
+	Hud.prototype.handleKeyPress = function(key_code) {	
+		// handle pause/unpause
+		switch(key_code) {
+			case KEY.ENTER:
+				this.togglePause();
+				break;
+		}
+	};
+	
+	Hud.prototype.togglePause = function () {
+		if (is(game_state, STATE.PLAYING)) {
+			game_state ^= STATE.PAUSED;
+		}
+	};
+	
+	Hud.prototype.draw = function () {
+		var scale = CANVAS_HEIGHT / DEFAULT_CANVAS_HEIGHT;
+		ctx.font = '14px monospace';
+		ctx.fillStyle = 'white';
+		ctx.fillText(
+			"Bomb: Tap left edge (on touch device), or S on keyboard",
+			20 / scale,
+			50 / scale
+		);
+		ctx.fillText(
+			"Left " + player.getLives(),
+			(window.innerWidth - 100) / scale,
+			50 / scale
+		);
+		if (is(game_state, STATE.PAUSED)) {
+			ctx.fillText(
+				"PAUSE",
+				window.innerWidth * 0.5 / scale,
+				ctx.canvas.height * 0.5 / scale 
+			);
+		};
+	};
+	
+	return Hud;
+})();
+
 // TODO: grid management system?
 // TODO: live_object manager?
 function findRandomPassable(min_distance_from_start) {
@@ -879,13 +1216,15 @@ function init(){
 	
 	point = new PointDevice();
 	player = new PlayerObject();
+	hud = new Hud();
   
 	for (i = 0; i < MAX_BOMBS; i++) {
 		bombs.push(new BombObject());
 	}
-
+	
 	generateMap();
 	spawnEnemies();
+	game_state = STATE.PLAYING;
 	gameloop(); // kick off loop; uses requestAnimationFrame
 };
 
@@ -932,6 +1271,8 @@ function sizeCanvas() {
 }
 
 function generateMap() {
+	door_spawned = false;
+	soft_block_count = 0;
 	for (x = 0; x < MAP_WIDTH; x++){
 		grid[x] = [];
 		for (y = 0; y < MAP_HEIGHT; y++){
@@ -945,51 +1286,41 @@ function generateMap() {
 			} else {
 				// generate soft blocks
 				grid[x][y] = new SoftBlockObject(x, y);
+				soft_block_count++;
 			}
 		}	
 	}
 };
 
 function spawnEnemies() {
-	for (var i = 0; i < 5; i++) {
+	for (var i = 0; i < 2; i++) {
 		enemies.push(new Balom());
-		//enemies.push(new Onil());
+		enemies.push(new Onil());
+		enemies.push(new Dahl());
+		enemies.push(new Minvo());
+		enemies.push(new Doria());
+		enemies.push(new Ovape());
+		enemies.push(new Pass());
+		enemies.push(new Pontan());
 	}
 };
-
-function hud(fps) {
-	ctx.font = '14px monospace';
-	ctx.fillStyle = 'white';
-	ctx.fillText(
-		"Tap left edge of screen (on touch device), or S on keyboard to plant bomb!",
-		20, 35
-	);
-	ctx.fillText(Math.round(fps), 0, 10);
-};
-
-/* for framerate */
-var lastCalledTime = null;
-var fps = 60;
-
 
 function gameloop(){
 	handleInput(key_press, keys_down);
 	key_press = [];
-	ai();
-	physics();
-	animate();
-	window.requestAnimationFrame(gameloop);
-	draw();
 	
-	if(!lastCalledTime) {
-		lastCalledTime = Date.now();
-		fps = 0;
-		return;
+	// if not paused
+	if (is(game_state, STATE.PAUSED)) {
+		window.requestAnimationFrame(gameloop);
+		hud.draw();
+	} else {
+		ai();
+		physics();
+		animate();
+		window.requestAnimationFrame(gameloop);
+		draw();
+		hud.draw();
 	}
-	delta = (Date.now() - lastCalledTime)/1000;
-	lastCalledTime = Date.now();
-	fps = 1/delta;
-	hud(fps);
 	
 	//randomBomb();
 	if (!enemies.length) {
@@ -1012,7 +1343,12 @@ function randomBomb() {
 
 function handleInput(key_press, keys_down) {
 	key_press.forEach(function (value, index) {
-		if (value) player.handleKeyPress(index);
+		if (value) {
+			hud.handleKeyPress(index);
+			if (!is(game_state, STATE.PAUSED)) {
+				player.handleKeyPress(index);
+			}
+		}
 	});
 	player.handleKeysDown(keys_down);
 };
@@ -1170,4 +1506,8 @@ function pickOne(array) {
 	return (array.length)
 		? array[Math.floor(Math.random() * array.length)]
 		: null;
+}
+
+function is(flag, state) {
+	return flag & state;
 }
