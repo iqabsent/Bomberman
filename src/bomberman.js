@@ -23,10 +23,12 @@ var OFFSET_Y = 65;
 var DRAG_TOLERANCE = 30;
 var BOMB_FUSE_TIME = 9; // in frames
 var MAX_BOMBS = 10;
+var MAX_YIELD = 5;
 var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
 var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 var DEFAULT_LIVES = 3;
+var INVINCIBILITY_TIMER = 35;
 
 // enums / flags
 var TYPE = {
@@ -35,7 +37,8 @@ var TYPE = {
 	SOFT_BLOCK: 2,
 	HARD_BLOCK: 4,
 	BOMB: 8,
-	EXPLOSION: 16
+	EXPLOSION: 16,
+	POWER: 32
 };
 var STATE = {
 	ERROR: 0,
@@ -51,6 +54,16 @@ var KEY = {
 	W: 87,
 	S: 83,
 	ENTER: 13
+}
+var POWER = {
+	FLAME: 0,
+	BOMB: 1,
+	SPEED: 2,
+	DETONATE: 4,
+	PASS_BOMB: 8,
+	PASS_WALL: 16,
+	FIREPROOF: 32,
+	INVINCIBLE: 64
 }
 
 // image and animation info
@@ -98,7 +111,15 @@ var IMG_DATA = {
 	OVAPE_DEATH: 'ovape_death.gif',
 	PASS_DEATH: 'pass_death.gif',
 	PONTAN_DEATH: 'pontan_death.gif',
-	DOOR: 'door.gif'
+	DOOR: 'door.gif',
+	POWER_FLAME: 'power_flame.gif',
+	POWER_BOMB: 'power_bomb.gif',
+	POWER_DETONATE: 'power_detonate.gif',
+	POWER_SPEED: 'power_speed.gif',
+	POWER_PASS_BOMB: 'power_pass_bomb.gif',
+	POWER_PASS_WALL: 'power_pass_wall.gif',
+	POWER_FIREPROOF: 'power_fireproof.gif',
+	POWER_INVINCIBLE: 'power_invincible.gif'
 };
 
 // image and animation instances - populated on preload()
@@ -125,13 +146,15 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
-var yield = 2;
+var yield = 1;
 var last_press_fake = false; // used to distinguish touch/keyboard behaviour
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
 var game_state = STATE.ERROR;
 var door_spawned = false;
+var power_spawned = false;
 var soft_block_count = 0;
+var level_power = pickOne(Object.keys(POWER));
 
 var GameObject = (function () {
 
@@ -322,7 +345,14 @@ var SoftBlockObject = (function () {
 	SoftBlockObject.prototype.burn = function () {
 		// track soft block count to use as odds for door spawning
 		if (soft_block_count) { soft_block_count--; }
-		if (!door_spawned
+		if (!power_spawned
+			&& (!(soft_block_count - 1) || Math.random() < 1/(soft_block_count - 1))
+		){
+			// spawn power
+			power_spawned = true;
+			grid[this._grid_x][this._grid_y] =
+				new PowerObject(this._grid_x, this._grid_y, level_power);
+		} else if (!door_spawned
 			&& (!soft_block_count || Math.random() < 1/soft_block_count)
 		) {
 			//spawn door
@@ -362,6 +392,25 @@ var DoorObject = (function () {
 	DoorObject.prototype = new GameObject;
 	
 	return DoorObject;
+})();
+
+var PowerObject = (function () {
+	function PowerObject(grid_x, grid_y, power_name) {
+		this._type = TYPE.POWER|TYPE.PASSABLE;
+		this._power = POWER[power_name];
+		this._image = IMG['POWER_' + power_name];
+		
+		this.setGridPosition(grid_x, grid_y);
+	};
+	
+	PowerObject.prototype = new GameObject;
+	
+	PowerObject.prototype.collect = function () {
+		grid[this._grid_x][this._grid_y] =
+			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
+	};
+	
+	return PowerObject;
 })();
 
 var FlameObject = (function () {
@@ -1067,6 +1116,26 @@ var PlayerObject = (function () {
 		}
 	};
 	
+	PlayerObject.prototype.checkPickup = function () {
+		var target = grid
+			[this._grid_x + this._direction_x]
+			[this._grid_y + this._direction_y];
+			
+		if (grid[this._grid_x][this._grid_y].is(TYPE.POWER)) {
+			grid[this._grid_x][this._grid_y].collect();
+			// TODO: handle power pickup
+			// object of POWER.TYPE: modifierFunction(player);
+			// player needs getters & setters || powerUp(POWER.TYPE) function
+		}
+	};
+	
+	PlayerObject.prototype.physics = function () {
+		this.collision();
+		this.move();
+		this.checkBurn();
+		this.checkPickup();
+	};
+	
 	PlayerObject.prototype.scrollLevel = function () {
 		if(CAN_SCROLL_X && (this._direction_x || this._error_x)) {
 			// moving horizontally
@@ -1272,6 +1341,7 @@ function sizeCanvas() {
 
 function generateMap() {
 	door_spawned = false;
+	power_spawned = false;
 	soft_block_count = 0;
 	for (x = 0; x < MAP_WIDTH; x++){
 		grid[x] = [];
@@ -1325,6 +1395,7 @@ function gameloop(){
 	//randomBomb();
 	if (!enemies.length) {
 		player = new PlayerObject();
+		level_power = pickOne(Object.keys(POWER));
 		generateMap();
 		spawnEnemies();
 		scroll_offset_x = 0;
