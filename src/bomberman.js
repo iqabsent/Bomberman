@@ -1,19 +1,62 @@
+// enums / flags
+var TYPE = {
+	NOTHING: 0,
+	PASSABLE: 1,
+	SOFT_BLOCK: 2,
+	HARD_BLOCK: 4,
+	BOMB: 8,
+	EXPLOSION: 16,
+	POWER: 32,
+	DOOR: 64
+};
+var STATE = {
+	ERROR: 0,
+	LOADING: 1, 
+	PLAYING: 2,
+	PAUSED: 4
+};
+var KEY = {
+	UP: 38,
+	DOWN: 40,
+	LEFT: 37,
+	RIGHT: 39,
+	W: 87,
+	S: 83,
+	D: 68,
+	ENTER: 13
+}
+var POWER = {
+	FLAME: 0,
+	BOMB: 1,
+	SPEED: 2,
+	DETONATE: 4,
+	PASS_BOMB: 8,
+	PASS_WALL: 16,
+	FIREPROOF: 32,
+	INVINCIBLE: 64
+}
+var SPEED = {
+	SLOWEST: 0.5,
+	SLOW: 1.0,
+	NORMAL: 1.5,
+	FAST: 2.0
+}
+
 // constants
 var MAX_CANVAS_HEIGHT = 600;
 var DEFAULT_CANVAS_WIDTH = 600;
 var DEFAULT_CANVAS_HEIGHT = 403;
 var CANVAS_WIDTH = 600;
 var CANVAS_HEIGHT = 403;
-var DEFAULT_MOVEMENT_SPEED = 1.5;
-var BALOM_MOVEMENT_SPEED = 0.5;
-var ONIL_MOVEMENT_SPEED = 1.0;
-var DAHL_MOVEMENT_SPEED = 1.0;
-var MINVO_MOVEMENT_SPEED = 1.0;
-var DORIA_MOVEMENT_SPEED = 0.3;
-var OVAPE_MOVEMENT_SPEED = 1.0;
-var PASS_MOVEMENT_SPEED = 1.2;
-var PONTAN_MOVEMENT_SPEED = 1.0;
-var PLAYER_MOVEMENT_SPEED = 1.5;
+var BALOM_MOVEMENT_SPEED = SPEED.SLOW;
+var ONIL_MOVEMENT_SPEED = SPEED.NORMAL;
+var DAHL_MOVEMENT_SPEED = SPEED.NORMAL;
+var MINVO_MOVEMENT_SPEED = SPEED.FAST;
+var DORIA_MOVEMENT_SPEED = SPEED.SLOWEST;
+var OVAPE_MOVEMENT_SPEED = SPEED.NORMAL;
+var PASS_MOVEMENT_SPEED = SPEED.FAST;
+var PONTAN_MOVEMENT_SPEED = SPEED.FAST;
+var PLAYER_MOVEMENT_SPEED = SPEED.NORMAL;
 var BLOCK_WIDTH = 30;
 var BLOCK_HEIGHT = 26;
 var MAP_WIDTH = 25;
@@ -29,42 +72,6 @@ var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 var DEFAULT_LIVES = 3;
 var INVINCIBILITY_TIMER = 35;
-
-// enums / flags
-var TYPE = {
-	NOTHING: 0,
-	PASSABLE: 1,
-	SOFT_BLOCK: 2,
-	HARD_BLOCK: 4,
-	BOMB: 8,
-	EXPLOSION: 16,
-	POWER: 32
-};
-var STATE = {
-	ERROR: 0,
-	LOADING: 1, 
-	PLAYING: 2,
-	PAUSED: 4
-};
-var KEY = {
-	UP: 38,
-	DOWN: 40,
-	LEFT: 37,
-	RIGHT: 39,
-	W: 87,
-	S: 83,
-	ENTER: 13
-}
-var POWER = {
-	FLAME: 0,
-	BOMB: 1,
-	SPEED: 2,
-	DETONATE: 4,
-	PASS_BOMB: 8,
-	PASS_WALL: 16,
-	FIREPROOF: 32,
-	INVINCIBLE: 64
-}
 
 // image and animation info
 var ASSET_PATH = "images/";
@@ -146,7 +153,6 @@ var player;
 var density = 2;
 var scroll_offset_x = 0;
 var scroll_offset_y = 0;
-var yield = 1;
 var last_press_fake = false; // used to distinguish touch/keyboard behaviour
 var frame = 1; // used to advance animation frame
 var time = 1; // used to dilate time in gameloop
@@ -154,7 +160,7 @@ var game_state = STATE.ERROR;
 var door_spawned = false;
 var power_spawned = false;
 var soft_block_count = 0;
-var level_power = pickOne(Object.keys(POWER));
+var level_power = pickOne(Object.keys(POWER).slice(0,5));
 
 var GameObject = (function () {
 
@@ -410,6 +416,10 @@ var PowerObject = (function () {
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
 	};
 	
+	PowerObject.prototype.getType = function () {
+		return this._power;
+	};
+	
 	return PowerObject;
 })();
 
@@ -494,7 +504,7 @@ var Explosion = (function () {
 var MovingObject = (function () {
 	
 	function MovingObject(){
-		this._movement_speed = DEFAULT_MOVEMENT_SPEED;
+		this._movement_speed = SPEED.NORMAL;
 		this._grid_x = 0;
 		this._grid_y = 0;	
 		this._direction_x = 0;
@@ -504,6 +514,8 @@ var MovingObject = (function () {
 		this._default_animation = null;
 		this._spawn_point = { x: null, y: null }
 		this._can_pass = TYPE.PASSABLE;
+		this._flameproof = false;
+		this._invincibility_timer = 0;
 	};
 		
 	MovingObject.prototype = new AnimatedObject;
@@ -515,7 +527,6 @@ var MovingObject = (function () {
 	};
 	
 	MovingObject.prototype.move = function () {
-	
 		// align with grid
 		this._error_x = 0;
 		this._error_y = 0;
@@ -598,6 +609,8 @@ var BombObject = (function () {
 		this._enabled = false;
 		this._ticks_per_frame = 18;
 		this._queued_actions = [];
+		this._yield = 1;
+		this._remote = false;
 	};
 		
 	BombObject.prototype = new AnimatedObject;
@@ -607,7 +620,7 @@ var BombObject = (function () {
 		this._frame = 0;
 		this._should_animate = true;
 		this.setImage(this._animation[0]);
-		this.startTimer(); // should check for power up to manually detonate
+		!this._remote && this.startTimer();
 	};
 	
 	BombObject.prototype.disable = function (){
@@ -628,9 +641,11 @@ var BombObject = (function () {
 		this.queue('explode', BOMB_FUSE_TIME);
 	};
   
-	BombObject.prototype.plant = function (grid_x, grid_y){
+	BombObject.prototype.plant = function (grid_x, grid_y, yield, remote){
 		if (!grid[grid_x][grid_y].is(TYPE.PASSABLE)) return;
 		this.setGridPosition(grid_x, grid_y);
+		this._yield = yield;
+		this._remote = !!remote;
 		this.enable();
 		grid[grid_x][grid_y] = this;
 	};
@@ -641,7 +656,7 @@ var BombObject = (function () {
 		this.setImage(IMG.NOTHING);
 		grid[this._grid_x][this._grid_y] =
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
-		live_objects.push(new Explosion(this._grid_x, this._grid_y, yield));
+		live_objects.push(new Explosion(this._grid_x, this._grid_y, this._yield));
 	};
   
 	BombObject.prototype.burn = function () {
@@ -1061,6 +1076,35 @@ var Pontan = (function () {
 	return Pontan;
 })();
 
+var powerUp = {
+	[POWER.FLAME]: function () {
+		this._bomb_yield = Math.min(this._bomb_yield + 1, MAX_YIELD);
+	},
+	[POWER.BOMB]: function () {
+		this._max_bombs = Math.min(this._max_bombs + 1, MAX_BOMBS);
+	},
+	[POWER.SPEED]: function () {
+		this._max_movement_speed = SPEED.FAST;
+	},
+	[POWER.DETONATE]: function () {
+		this._can_detonate = true;
+		this.disarmBombs();
+	},
+	[POWER.PASS_BOMB]: function () {
+		this._can_pass = this._can_pass|TYPE.BOMB;
+	},
+	[POWER.PASS_WALL]: function () {
+		this._can_pass = this._can_pass|TYPE.SOFT_BLOCK;
+	},
+	[POWER.FIREPROOF]: function () {
+		this._flameproof = true;
+	},
+	[POWER.INVINCIBLE]: function () {
+		this._invincibility_timer = INVINCIBILITY_TIMER;
+	}
+}
+console.log(powerUp)
+
 // TODO: Player >> Stateful?
 var PlayerObject = (function () {
 
@@ -1069,6 +1113,11 @@ var PlayerObject = (function () {
 		this._default_animation = ANI.MAN_DOWN;
 		this._spawn_point = { x: 1, y: 1 };
 		this._lives = DEFAULT_LIVES;
+		this._bomb_yield = 1;
+		this._max_bombs = 1;
+		this._max_movement_speed = SPEED.NORMAL;
+		this._invincibility_timer = 0;
+		this._can_detonate = false;
 		this.spawn();
 	};
 
@@ -1078,7 +1127,6 @@ var PlayerObject = (function () {
 		this._alive = true;
 		this.setAnimation(this._default_animation);
 		this.setGridPosition(this._spawn_point.x, this._spawn_point.y);
-		if (this._lives) { this._lives--; }
 	};
 	
 	PlayerObject.prototype.getLives = function () {
@@ -1089,6 +1137,7 @@ var PlayerObject = (function () {
 		this._should_animate = false;
 		scroll_offset_x = 0;
 		scroll_offset_y = 0;
+		if (this._lives) { this._lives--; }
 		this.spawn();
 		if (!last_press_fake) {
 			key_press[KEY.UP] = keys_down[KEY.UP];
@@ -1116,24 +1165,36 @@ var PlayerObject = (function () {
 		}
 	};
 	
-	PlayerObject.prototype.checkPickup = function () {
-		var target = grid
-			[this._grid_x + this._direction_x]
-			[this._grid_y + this._direction_y];
-			
+	PlayerObject.prototype.checkPickup = function () {	
 		if (grid[this._grid_x][this._grid_y].is(TYPE.POWER)) {
+			powerUp[grid[this._grid_x][this._grid_y].getType()].call(this);
 			grid[this._grid_x][this._grid_y].collect();
-			// TODO: handle power pickup
-			// object of POWER.TYPE: modifierFunction(player);
-			// player needs getters & setters || powerUp(POWER.TYPE) function
 		}
 	};
+	
+	PlayerObject.prototype.checkDoor = function () {
+		if (!door_spawned) { return; }
+		if (grid[this._grid_x][this._grid_y].is(TYPE.DOOR)) {
+			// TODO: handle next level
+			fakeNextLevel();
+		}
+	}
+	
+	PlayerObject.prototype.disarmBombs = function () {
+		// TODO: bombs aggregated by player
+		for (i = 0; i < this._max_bombs; i++) {
+			if(bombs[i].isEnabled()) {
+				bombs[i].stopTimer();
+			}
+		}
+	}
 	
 	PlayerObject.prototype.physics = function () {
 		this.collision();
 		this.move();
 		this.checkBurn();
 		this.checkPickup();
+		this.checkDoor();
 	};
 	
 	PlayerObject.prototype.scrollLevel = function () {
@@ -1190,7 +1251,7 @@ var PlayerObject = (function () {
 			|| keys_down[KEY.LEFT]
 			|| keys_down[KEY.RIGHT]
 		) {
-			this._movement_speed = PLAYER_MOVEMENT_SPEED;
+			this._movement_speed = this._max_movement_speed;
 			this._should_animate = true;
 		} else {
 			this._should_animate = false;
@@ -1200,13 +1261,28 @@ var PlayerObject = (function () {
 		if (keys_down[KEY.S]) {
 			keys_down[KEY.S] = false;
 			// plant bomb
-			for (i = 0; i < bombs.length; i++) {
+			for (i = 0; i < this._max_bombs; i++) {
 				if(!bombs[i].isEnabled()) {
-					bombs[i].plant(this._grid_x, this._grid_y);
+					bombs[i].plant(
+						this._grid_x,
+						this._grid_y,
+						this._bomb_yield,
+						this._can_detonate
+					);
 					break;
 				}
 			}
-		}	
+		}
+		
+		if (keys_down[KEY.D] && this._can_detonate) {
+			keys_down[KEY.D] = false;
+			// detonate bombs .. TODO: one at a time; FIFO
+			for (i = 0; i < this._max_bombs; i++) {
+				if(bombs[i].isEnabled()) {
+					bombs[i].explode();
+				}
+			}
+		}
 	};
 	
 	return PlayerObject;
@@ -1363,7 +1439,7 @@ function generateMap() {
 };
 
 function spawnEnemies() {
-	for (var i = 0; i < 2; i++) {
+	for (var i = 0; i < 1; i++) {
 		enemies.push(new Balom());
 		enemies.push(new Onil());
 		enemies.push(new Dahl());
@@ -1391,25 +1467,14 @@ function gameloop(){
 		draw();
 		hud.draw();
 	}
-	
-	//randomBomb();
-	if (!enemies.length) {
-		player = new PlayerObject();
-		level_power = pickOne(Object.keys(POWER));
-		generateMap();
-		spawnEnemies();
-		scroll_offset_x = 0;
-	}
 };
 
-function randomBomb() {
-	var random = findRandomPassable();
-	for (i = 0; i < bombs.length; i++) {
-		if(!bombs[i].isEnabled()) {
-			bombs[i].plant(random.x, random.y);
-			break;
-		}
-	}
+function fakeNextLevel(){
+	player.spawn();
+	level_power = pickOne(Object.keys(POWER).slice(0,5));
+	generateMap();
+	spawnEnemies();
+	scroll_offset_x = 0;
 }
 
 function handleInput(key_press, keys_down) {
