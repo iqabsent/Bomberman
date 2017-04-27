@@ -48,15 +48,6 @@ var DEFAULT_CANVAS_WIDTH = 600;
 var DEFAULT_CANVAS_HEIGHT = 403;
 var CANVAS_WIDTH = 600;
 var CANVAS_HEIGHT = 403;
-var BALOM_MOVEMENT_SPEED = SPEED.SLOW;
-var ONIL_MOVEMENT_SPEED = SPEED.NORMAL;
-var DAHL_MOVEMENT_SPEED = SPEED.NORMAL;
-var MINVO_MOVEMENT_SPEED = SPEED.FAST;
-var DORIA_MOVEMENT_SPEED = SPEED.SLOWEST;
-var OVAPE_MOVEMENT_SPEED = SPEED.NORMAL;
-var PASS_MOVEMENT_SPEED = SPEED.FAST;
-var PONTAN_MOVEMENT_SPEED = SPEED.FAST;
-var PLAYER_MOVEMENT_SPEED = SPEED.NORMAL;
 var BLOCK_WIDTH = 30;
 var BLOCK_HEIGHT = 26;
 var MAP_WIDTH = 25;
@@ -72,6 +63,120 @@ var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 var DEFAULT_LIVES = 3;
 var INVINCIBILITY_TIMER = 35;
+
+// enemy type data
+var ENEMY = {
+	BALOM: {
+		movement_speed: SPEED.SLOW,
+		spawn_distance: 8,
+		action_frequency: 0.08,
+		frames_between_actions: 5,
+		can_pass: TYPE.PASSABLE
+	},
+	ONIL: {
+		movement_speed: SPEED.NORMAL,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE
+	},
+	DAHL: {
+		movement_speed: SPEED.NORMAL,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE
+	},
+	MINVO: {
+		movement_speed: SPEED.FAST,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE
+	},
+	DORIA: {
+		movement_speed: SPEED.SLOWEST,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE|TYPE.SOFT_BLOCK
+	},
+	OVAPE: {
+		movement_speed: SPEED.NORMAL,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE|TYPE.SOFT_BLOCK
+	},
+	PASS: {
+		movement_speed: SPEED.FAST,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE
+	},
+	PONTAN: {
+		movement_speed: SPEED.NORMAL,
+		spawn_distance: 16,
+		action_frequency: 0.12,
+		frames_between_actions: 2,
+		can_pass: TYPE.PASSABLE|TYPE.SOFT_BLOCK
+	}
+}
+
+// level data
+var LEVEL = [
+	{ power: 'FLAME', enemies: { BALOM: 6 }},
+	{ power: 'BOMB', enemies: { BALOM: 3, ONIL: 3 }},
+	{ power: 'DETONATOR', enemies: { BALOM: 2, ONIL: 2, DAHL: 2 }},
+	{ power: 'SPEED', enemies: { BALOM: 1, ONIL: 2, DAHL: 2, MINVO: 2 }},
+	{ power: 'BOMB', enemies: { ONIL: 4, DAHL: 3 }},
+	{ power: 'BOMB', enemies: { ONIL: 2, DAHL: 3, MINVO: 2 }},
+	{ power: 'FLAME', enemies: { ONIL: 2, DAHL: 3, OVAPE: 2 }},
+	{ power: 'DETONATOR', enemies: { ONIL: 1, DAHL: 2, MINVO: 4}},
+	{ power: 'PASS_BOMB', enemies: { ONIL: 1, DAHL: 1, MINVO: 4, DORIA: 1 }},
+	{ power: 'PASS_WALL', enemies: { ONIL: 1, DAHL: 1, MINVO: 1, OVAPE: 1, DORIA: 3 }},
+	{ power: 'BOMB', enemies: { ONIL: 1, DAHL: 2, MINVO: 3, OVAPE: 1, DORIA: 1 }},
+	{ power: 'BOMB', enemies: { ONIL: 1, DAHL: 1, MINVO: 1, OVAPE: 1, DORIA: 4 }},
+	{ power: 'DETONATOR', enemies: { DAHL: 3, MINVO: 3, DORIA: 2 }},
+	{ power: 'PASS_BOMB', enemies: { OVAPE: 7, PASS: 1 }},
+	{ power: 'FLAME', enemies: { DAHL: 1, MINVO: 3, DORIA: 3, PASS: 1 }},
+	{ power: 'PASS_WALL', enemies: { MINVO: 3, DORIA: 4, PASS: 1 }},
+	{ power: 'BOMB', enemies: { DAHL: 5, DORIA: 2, PASS: 1 }},
+	{ power: 'PASS_BOMB', enemies: { BALOM: 3, ONIL: 3, PASS: 2 }},
+	{ power: 'BOMB', enemies: { BALOM: 1, OVAPE: 1, ONIL: 1, DAHL: 3, PASS: 2 }},
+	{ power: 'DETONATOR', enemies: { ONIL: 1, DAHL: 1, MINVO: 1, OVAPE: 1, DORIA: 2, PASS: 2 }},
+	{ power: 'PASS_BOMB', enemies: { OVAPE: 3, DORIA: 4, PASS: 2 }},
+	{ power: 'DETONATOR', enemies: { DAHL: 4, MINVO: 3, DORIA: 1, PASS: 1 }},
+	{ power: 'BOMB', enemies: { DAHL: 2, MINVO: 2, OVAPE: 2, DORIA: 2, PASS: 1 }},
+	{ power: 'DETONATOR', enemies: { DAHL: 1, MINVO: 1, OVAPE: 2, DORIA: 4, PASS: 1 }},
+	{ power: 'PASS_BOMB', enemies: { ONIL: 2, DAHL: 1, MINVO: 1, OVAPE: 2, DORIA: 2, PASS: 1 }},
+	{ power: 'INVINCIBLE', enemies: { BALOM: 1, ONIL: 1, DAHL: 1, MINVO: 1, OVAPE: 1, DORIA: 2, PASS: 1 }},
+	{ power: 'FLAME', enemies: { BALOM: 1, ONIL: 1, OVAPE: 1, DORIA: 5, PASS: 1 }},
+	{ power: 'BOMB', enemies: { ONIL: 1, DAHL: 3, MINVO: 3, DORIA: 1, PASS: 1 }},
+	{ power: 'DETONATOR', enemies: { OVAPE: 5, DORIA: 2, PASS: 2 }},
+	{ power: 'FIREPROOF', enemies: { DAHL: 3, MINVO: 2, OVAPE: 2, DORIA: 1, PASS: 1 }},
+	{ power: 'PASS_WALL', enemies: { ONIL: 2, DAHL: 2, MINVO: 2, OVAPE: 2, DORIA: 2 }},
+	{ power: 'BOMB', enemies: { ONIL: 1, DAHL: 1, MINVO: 3, DORIA: 4, PASS: 1 }},
+	{ power: 'DETONATOR', enemies: { DAHL: 2, MINVO: 2, OVAPE: 1, DORIA: 3, PASS: 2 }},
+	{ power: 'INVINCIBLE', enemies: { DAHL: 2, MINVO: 3, DORIA: 3, PASS: 2 }},
+	{ power: 'PASS_BOMB', enemies: { DAHL: 2, MINVO: 1, OVAPE: 1, DORIA: 3, PASS: 2 }},
+	{ power: 'FIREPROOF', enemies: { DAHL: 2, MINVO: 2, DORIA: 3, PASS: 3 }},
+	{ power: 'DETONATOR', enemies: { DAHL: 2, MINVO: 1, OVAPE: 1, DORIA: 3, PASS: 3 }},
+	{ power: 'FLAME', enemies: { DAHL: 2, MINVO: 2, DORIA: 3, PASS: 3 }},
+	{ power: 'PASS_WALL', enemies: { DAHL: 1, MINVO: 1, OVAPE: 2, DORIA: 2, PASS: 4 }},
+	{ power: 'INVINCIBLE', enemies: { DAHL: 1, MINVO: 2, DORIA: 3, PASS: 4 }},
+	{ power: 'DETONATOR', enemies: { DAHL: 1, MINVO: 1, OVAPE: 1, DORIA: 3, PASS: 4 }},
+	{ power: 'PASS_WALL', enemies: { MINVO: 1, OVAPE: 1, DORIA: 3, PASS: 5 }},
+	{ power: 'PASS_BOMB', enemies: { MINVO: 1, OVAPE: 1, DORIA: 2, PASS: 6 }},
+	{ power: 'DETONATOR', enemies: { MINVO: 1, OVAPE: 1, DORIA: 2, PASS: 6 }},
+	{ power: 'INVINCIBLE', enemies: { OVAPE: 2, DORIA: 2, PASS: 6 }},
+	{ power: 'PASS_WALL', enemies: { OVAPE: 2, DORIA: 2, PASS: 6 }},
+	{ power: 'PASS_BOMB', enemies: { OVAPE: 2, DORIA: 2, PASS: 6 }},
+	{ power: 'DETONATOR', enemies: { OVAPE: 1, DORIA: 2, PASS: 6, PONTAN: 1 }},
+	{ power: 'FIREPROOF', enemies: { OVAPE: 2, DORIA: 1, PASS: 6, PONTAN: 1 }},
+	{ power: 'INVINCIBLE', enemies: { OVAPE: 2, DORIA: 1, PASS: 5, PONTAN: 2 }}
+]
 
 // image and animation info
 var ASSET_PATH = "images/";
@@ -160,7 +265,7 @@ var game_state = STATE.ERROR;
 var door_spawned = false;
 var power_spawned = false;
 var soft_block_count = 0;
-var level_power = pickOne(Object.keys(POWER).slice(0,5));
+var level = 0;
 
 var GameObject = (function () {
 
@@ -357,7 +462,7 @@ var SoftBlockObject = (function () {
 			// spawn power
 			power_spawned = true;
 			grid[this._grid_x][this._grid_y] =
-				new PowerObject(this._grid_x, this._grid_y, level_power);
+				new PowerObject(this._grid_x, this._grid_y, LEVEL[level].power);
 		} else if (!door_spawned
 			&& (!soft_block_count || Math.random() < 1/soft_block_count)
 		) {
@@ -683,7 +788,34 @@ var BombObject = (function () {
 // - each state has associated behaviour
 
 var EnemyObject = (function () {
-	function EnemyObject() {
+	function EnemyObject(type, stats) {
+		this._ticks_per_frame = 18;
+		this._should_animate = true;
+		this._recently_acted = false;
+		this._can_pass = stats.can_pass;
+		this._default_movement_speed = stats.movement_speed;
+		this._frames_between_actions = stats.frames_between_actions;
+		this._action_frequency = stats.action_frequency;
+		this._spawn_point = findRandomPassable(stats.spawn_distance);
+		this._default_animation = ANI[type + '_LD'];
+		this._left_down_animation = ANI[type + '_LD'];
+		this._right_up_animation = ANI[type + '_RU'];
+		this._death_frame = IMG[type + '_DEATH'];
+		this._queued_actions = []; // needs this; instance shared otherwise -_-
+		this._action_triggers = [
+			{
+				check: function () {
+					return !this._movement_speed
+							|| (!this._recently_acted
+								&& this.isAligned()
+								&& Math.random() < this._action_frequency)
+				}.bind(this),
+				action: function() {
+					this.moveDirection.apply(this);
+				}.bind(this)
+			}
+		];
+		this.spawn();
 	};
 
 	EnemyObject.prototype = new MovingObject();
@@ -786,295 +918,10 @@ var EnemyObject = (function () {
 	return EnemyObject;
 })();
 
-var GhostObject = (function () {
-	function GhostObject() {
-		this._can_pass = TYPE.PASSABLE|TYPE.SOFT_BLOCK;
-	};
-	
-	GhostObject.prototype = new EnemyObject;
-	
-	return GhostObject;
-})();
-
-var Balom = (function () {
-	function Balom() {
-		this._default_movement_speed = BALOM_MOVEMENT_SPEED;
-		this._default_animation = ANI.BALOM_LD;
-		this._left_down_animation = ANI.BALOM_LD;
-		this._right_up_animation = ANI.BALOM_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.BALOM_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 5;
-		this._action_frequency = 0.08;
-		this._spawn_point = findRandomPassable(8);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Balom.prototype = new EnemyObject();
-	
-	return Balom;
-})();
-
-var Onil = (function () {
-	function Onil() {
-		this._default_movement_speed = ONIL_MOVEMENT_SPEED;
-		this._default_animation = ANI.ONIL_LD;
-		this._left_down_animation = ANI.ONIL_LD;
-		this._right_up_animation = ANI.ONIL_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.ONIL_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Onil.prototype = new EnemyObject;
-	
-	return Onil;
-})();
-
-var Dahl = (function () {
-	function Dahl() {
-		this._default_movement_speed = DAHL_MOVEMENT_SPEED;
-		this._default_animation = ANI.DAHL_LD;
-		this._left_down_animation = ANI.DAHL_LD;
-		this._right_up_animation = ANI.DAHL_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.DAHL_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Dahl.prototype = new EnemyObject;
-	
-	return Dahl;
-})();
-
-var Minvo = (function () {
-	function Minvo() {
-		this._default_movement_speed = MINVO_MOVEMENT_SPEED;
-		this._default_animation = ANI.MINVO_LD;
-		this._left_down_animation = ANI.MINVO_LD;
-		this._right_up_animation = ANI.MINVO_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.MINVO_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Minvo.prototype = new EnemyObject;
-	
-	return Minvo;
-})();
-
-var Doria = (function () {
-	function Doria() {
-		this._default_movement_speed = DORIA_MOVEMENT_SPEED;
-		this._default_animation = ANI.DORIA_LD;
-		this._left_down_animation = ANI.DORIA_LD;
-		this._right_up_animation = ANI.DORIA_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.DORIA_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Doria.prototype = new GhostObject;
-	
-	return Doria;
-})();
-
-var Ovape = (function () {
-	function Ovape() {
-		this._default_movement_speed = OVAPE_MOVEMENT_SPEED;
-		this._default_animation = ANI.OVAPE_LD;
-		this._left_down_animation = ANI.OVAPE_LD;
-		this._right_up_animation = ANI.OVAPE_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.OVAPE_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Ovape.prototype = new GhostObject;
-	
-	return Ovape;
-})();
-
-var Pass = (function () {
-	function Pass() {
-		this._default_movement_speed = PASS_MOVEMENT_SPEED;
-		this._default_animation = ANI.PASS_LD;
-		this._left_down_animation = ANI.PASS_LD;
-		this._right_up_animation = ANI.PASS_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.PASS_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Pass.prototype = new EnemyObject;
-	
-	return Pass;
-})();
-
-var Pontan = (function () {
-	function Pontan() {
-		this._default_movement_speed = PONTAN_MOVEMENT_SPEED;
-		this._default_animation = ANI.PONTAN_LD;
-		this._left_down_animation = ANI.PONTAN_LD;
-		this._right_up_animation = ANI.PONTAN_RU;
-		this._ticks_per_frame = 18;
-		this._death_frame = IMG.PONTAN_DEATH;
-		this._should_animate = true;
-		this._recently_acted = false;
-		this._frames_between_actions = 2;
-		this._action_frequency = 0.12;
-		this._spawn_point = findRandomPassable(16);
-		this._queued_actions = []; // needs this; instance shared otherwise -_-
-		this._action_triggers = [
-			{
-				check: function () {
-					return !this._movement_speed
-							|| (!this._recently_acted
-								&& this.isAligned()
-								&& Math.random() < this._action_frequency)
-				}.bind(this),
-				action: function() {
-					this.moveDirection.apply(this);
-				}.bind(this)
-			}
-		];
-		this.spawn();
-	};
-	
-	Pontan.prototype = new GhostObject;
-	
-	return Pontan;
-})();
+var Enemy = function enemyFactory(type){
+	if (!ENEMY[type]) return;
+	return new EnemyObject(type, ENEMY[type]);
+}
 
 var powerUp = {
 	[POWER.FLAME]: function () {
@@ -1103,7 +950,6 @@ var powerUp = {
 		this._invincibility_timer = INVINCIBILITY_TIMER;
 	}
 }
-console.log(powerUp)
 
 // TODO: Player >> Stateful?
 var PlayerObject = (function () {
@@ -1175,8 +1021,8 @@ var PlayerObject = (function () {
 	PlayerObject.prototype.checkDoor = function () {
 		if (!door_spawned) { return; }
 		if (grid[this._grid_x][this._grid_y].is(TYPE.DOOR)) {
-			// TODO: handle next level
-			fakeNextLevel();
+			// TODO: handle next level transition
+			nextLevel();
 		}
 	}
 	
@@ -1368,7 +1214,7 @@ function init(){
 	}
 	
 	generateMap();
-	spawnEnemies();
+	spawnEnemies(LEVEL[level].enemies);
 	game_state = STATE.PLAYING;
 	gameloop(); // kick off loop; uses requestAnimationFrame
 };
@@ -1438,17 +1284,12 @@ function generateMap() {
 	}
 };
 
-function spawnEnemies() {
-	for (var i = 0; i < 1; i++) {
-		enemies.push(new Balom());
-		enemies.push(new Onil());
-		enemies.push(new Dahl());
-		enemies.push(new Minvo());
-		enemies.push(new Doria());
-		enemies.push(new Ovape());
-		enemies.push(new Pass());
-		enemies.push(new Pontan());
-	}
+function spawnEnemies(level_enemies) {
+	Object.keys(level_enemies).forEach(function (type) {
+		for (var i = 0; i < level_enemies[type]; i++) {
+			enemies.push(Enemy(type));
+		}
+	})
 };
 
 function gameloop(){
@@ -1469,11 +1310,12 @@ function gameloop(){
 	}
 };
 
-function fakeNextLevel(){
+function nextLevel(){
+	level++;
+	level%=50;
 	player.spawn();
-	level_power = pickOne(Object.keys(POWER).slice(0,5));
 	generateMap();
-	spawnEnemies();
+	spawnEnemies(LEVEL[level].enemies);
 	scroll_offset_x = 0;
 }
 
