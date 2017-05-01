@@ -63,6 +63,7 @@ var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 var DEFAULT_LIVES = 2;
 var INVINCIBILITY_TIMER = 35;
+var LEVEL_TIME = 200000;
 
 // enemy type data
 var ENEMY = {
@@ -268,6 +269,7 @@ var start_x = BLOCK_WIDTH + OFFSET_X;
 var start_y = BLOCK_HEIGHT + OFFSET_Y;
 var grid = [];
 var bombs = [];
+var bomb_sequence = [];
 var live_objects = [];
 var enemies = [];
 var key_press = [];
@@ -288,6 +290,10 @@ var level = 0;
 var descale = 1;
 var sound = null;
 var volume = 0.2;
+var timer = 200000;
+var time_up = false;
+var last_pass = 0;
+var score = 0;
 
 var GameObject = (function () {
 
@@ -517,12 +523,26 @@ var SoftBlockObject = (function () {
 
 var DoorObject = (function () {
 	function DoorObject(grid_x, grid_y) {
+		this._burnt = false;
 		this._type = TYPE.DOOR|TYPE.PASSABLE;
 		this._image = IMG.DOOR;
 		this.setGridPosition(grid_x, grid_y);
 	};
 	
 	DoorObject.prototype = new GameObject;
+	
+	DoorObject.prototype.burn = function () {		
+		this._burnt = true;
+		var spawn_point = { x: this._grid_x, y: this._grid_y };
+		// TODO: delay -___-
+		for (var i = 0; i < 4; i++) {
+			enemies.push(Enemy('PONTAN', spawn_point));
+		}
+	};
+	
+	DoorObject.prototype.getBurnt = function () {
+		return this._burnt;
+	};
 	
 	return DoorObject;
 })();
@@ -586,6 +606,12 @@ var Explosion = (function () {
 				var target_y = grid_y + direct[1] * i;
 				var target = grid[target_x][target_y];
 				if (!target) continue;
+				if (target.is(TYPE.DOOR)) {
+					if (!target.getBurnt()) {
+						hit = true;
+						target.burn();
+					}
+				}
 				if (target.is(TYPE.PASSABLE)) {
 					var type = (direct[0])
 						? (i == yield) ? ['L', '', 'R'][1 + direct[0]] : 'H' 
@@ -771,10 +797,12 @@ var BombObject = (function () {
   
 	BombObject.prototype.plant = function (grid_x, grid_y, yield, remote){
 		if (!grid[grid_x][grid_y].is(TYPE.PASSABLE)) return;
+		if (grid[grid_x][grid_y].is(TYPE.DOOR)) return; // TODO: allow on door?
 		this.setGridPosition(grid_x, grid_y);
 		this._yield = yield;
 		this._remote = !!remote;
 		this.enable();
+		bomb_sequence.push(bombs.indexOf(this));
 		grid[grid_x][grid_y] = this;
 		sound.play('plant');
 	};
@@ -782,6 +810,7 @@ var BombObject = (function () {
 	BombObject.prototype.explode = function (){
 		this.stopTimer();
 		this.disable();
+		bomb_sequence.shift();
 		this.setImage(IMG.NOTHING);
 		grid[this._grid_x][this._grid_y] =
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
@@ -812,7 +841,7 @@ var BombObject = (function () {
 // - each state has associated behaviour
 
 var EnemyObject = (function () {
-	function EnemyObject(type, stats) {
+	function EnemyObject(type, stats, spawn_point) {
 		this._ticks_per_frame = 18;
 		this._should_animate = true;
 		this._recently_acted = false;
@@ -820,7 +849,7 @@ var EnemyObject = (function () {
 		this._default_movement_speed = stats.movement_speed;
 		this._frames_between_actions = stats.frames_between_actions;
 		this._action_frequency = stats.action_frequency;
-		this._spawn_point = findRandomPassable(stats.spawn_distance);
+		this._points = stats.points;
 		this._default_animation = ANI[type + '_LD'];
 		this._left_down_animation = ANI[type + '_LD'];
 		this._right_up_animation = ANI[type + '_RU'];
@@ -839,6 +868,8 @@ var EnemyObject = (function () {
 				}.bind(this)
 			}
 		];
+		this._spawn_point =
+			spawn_point || findRandomPassable(stats.spawn_distance);
 		this.spawn();
 	};
 
@@ -872,6 +903,7 @@ var EnemyObject = (function () {
 	EnemyObject.prototype.end = function () {
 		this._action_triggers = null;
 		this._queued_actions = null;
+		score += this._points;
 		enemies.splice(enemies.indexOf(this),1);
 		if (!enemies.length) { sound.play('pause'); }
 	};
@@ -943,9 +975,9 @@ var EnemyObject = (function () {
 	return EnemyObject;
 })();
 
-var Enemy = function enemyFactory(type){
+var Enemy = function enemyFactory(type, grid_x, grid_y){
 	if (!ENEMY[type]) return;
-	return new EnemyObject(type, ENEMY[type]);
+	return new EnemyObject(type, ENEMY[type], grid_x, grid_y);
 }
 
 var powerUp = {
@@ -985,11 +1017,11 @@ var PlayerObject = (function () {
 		this._spawn_point = { x: 1, y: 1 };
 		this._lives = DEFAULT_LIVES;
 		this._bomb_yield = 1;
-		this._max_bombs = 1;
+		this._max_bombs = 5;
 		this._max_movement_speed = SPEED.NORMAL;
 		this._invincibility_timer = 0;
 		this._flameproof = false;
-		this._can_detonate = false;
+		this._can_detonate = true;
 		this.spawn();
 	};
 
@@ -1010,6 +1042,9 @@ var PlayerObject = (function () {
 		scroll_offset_x = 0;
 		scroll_offset_y = 0;
 		if (this._lives) { this._lives--; }
+		this._can_pass &= ~POWER.PASS_WALL&~POWER.PASS_BOMB;
+		this._flameproof = false;
+		this._can_detonate = false;
 		this.spawn();
 		if (!last_press_fake) {
 			key_press[KEY.UP] = keys_down[KEY.UP];
@@ -1053,7 +1088,7 @@ var PlayerObject = (function () {
 	};
 	
 	PlayerObject.prototype.checkDoor = function () {
-		if (!door_spawned) { return; }
+		if (!door_spawned || enemies.length) { return; }
 		if (grid[this._grid_x][this._grid_y].is(TYPE.DOOR)) {
 			// TODO: handle next level transition
 			nextLevel();
@@ -1146,6 +1181,7 @@ var PlayerObject = (function () {
 		if (keys_down[KEY.S]) {
 			keys_down[KEY.S] = false;
 			// plant bomb
+			if (grid[this._grid_x][this._grid_y])
 			for (i = 0; i < this._max_bombs; i++) {
 				if(!bombs[i].isEnabled()) {
 					bombs[i].plant(
@@ -1161,11 +1197,8 @@ var PlayerObject = (function () {
 		
 		if (keys_down[KEY.D] && this._can_detonate) {
 			keys_down[KEY.D] = false;
-			// detonate bombs .. TODO: one at a time; FIFO
-			for (i = 0; i < this._max_bombs; i++) {
-				if(bombs[i].isEnabled()) {
-					bombs[i].explode();
-				}
+			if (typeof bomb_sequence[0] !== 'undefined') {
+				bombs[bomb_sequence[0]].explode();
 			}
 		}
 	};
@@ -1190,6 +1223,7 @@ var Hud = (function () {
 	
 	Hud.prototype.togglePause = function () {
 		if (is(game_state, STATE.PLAYING)) {
+			last_pass = Date.now();
 			game_state ^= STATE.PAUSED;
 		}
 	};
@@ -1198,8 +1232,13 @@ var Hud = (function () {
 		ctx.font = '14px monospace';
 		ctx.fillStyle = 'white';
 		ctx.fillText(
-			"Bomb: Tap left edge (on touch device), or S on keyboard",
+			Math.floor(timer * 0.001),
 			CANVAS_WIDTH * 0.03 * descale,
+			CANVAS_HEIGHT * 0.09 * descale
+		);
+		ctx.fillText(
+			score,
+			CANVAS_WIDTH * 0.5 * descale,
 			CANVAS_HEIGHT * 0.09 * descale
 		);
 		ctx.fillText(
@@ -1279,6 +1318,23 @@ function findPassable(min_distance_from_start) {
 	}
 	return passable;
 };
+
+function updateTimer() {
+	var now = Date.now();
+	if (timer && last_pass) {
+		timer -= now - last_pass;
+	}
+	last_pass = now;
+	if (timer <= 0) {
+		timer = 0;
+		if (!time_up) {
+			time_up = true;
+			for (var i = 0; i < 5; i++) {
+				enemies.push(Enemy('PONTAN'));
+			}
+		}
+	}
+}
 
 function init(){
 	sizeCanvas(); // sets up ctx
@@ -1390,16 +1446,19 @@ function gameloop(){
 		window.requestAnimationFrame(gameloop);
 		draw();
 		hud.draw();
+		updateTimer();
 	}
 };
 
 function nextLevel(){
 	level++;
 	level%=50;
+	timer = 200000;
 	player.addLife();
 	player.spawn();
 	generateMap();
 	spawnEnemies(LEVEL[level].enemies);
+	time_up = false;
 	scroll_offset_x = 0;
 }
 
