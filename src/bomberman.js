@@ -7,7 +7,8 @@ var TYPE = {
 	BOMB: 8,
 	EXPLOSION: 16,
 	POWER: 32,
-	DOOR: 64
+	DOOR: 64,
+	DESTROYABLE: 128
 };
 var STATE = {
 	ERROR: 0,
@@ -460,25 +461,52 @@ var AnimatedObject = (function () {
 	
 })();
 
-// Destroyable
-// = Animated > Destroyable > SoftBlock/Moveable/Stateful
-// - has burn()
+var DestroyableObject = (function () {
+
+	function DestroyableObject(){
+		this._burnt = false;
+		this._type = TYPE.PASSABLE|TYPE.DESTROYABLE;
+		this._ticks_per_frame = 42;
+		this._loop = false;
+	};
+	
+	DestroyableObject.prototype = new AnimatedObject;
+	
+	DestroyableObject.prototype.onEnd = function () {};
+	
+	DestroyableObject.prototype.end = function () {
+		this._should_animate = false;
+		live_objects.splice(live_objects.indexOf(this), 1);
+		this.onEnd();
+	};
+	
+	DestroyableObject.prototype.burn = function () {
+		this._burnt = true;
+		this._should_animate = true;
+		live_objects.push(this);
+	};
+	
+	DestroyableObject.prototype.getBurnt = function () {
+		return this._burnt;
+	};
+
+	return DestroyableObject;
+})();
 
 var SoftBlockObject = (function () {
 
 	function SoftBlockObject(grid_x, grid_y) {
-		this._type = TYPE.SOFT_BLOCK;
+		this._type = TYPE.SOFT_BLOCK|TYPE.DESTROYABLE;
 		this._ticks_per_frame = 6;
 		this.setAnimation(ANI.SOFT_BLOCK, true);
 		this.setGridPosition(grid_x, grid_y);
 	};
 	
-	SoftBlockObject.prototype = new AnimatedObject;
+	SoftBlockObject.prototype = new DestroyableObject;
 	
-	SoftBlockObject.prototype.end = function () {
+	SoftBlockObject.prototype.onEnd = function () {
 		grid[this._grid_x][this._grid_y] =
 			new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
-		live_objects.splice(live_objects.indexOf(this), 1);
 	};
 	
 	SoftBlockObject.prototype.burn = function () {
@@ -502,6 +530,7 @@ var SoftBlockObject = (function () {
 			// just burn soft block
 			this._frame = 1;
 			this._should_animate = true;
+			this._burnt = true;
 			this.queue('becomePassable', 3);
 			live_objects.push(this);
 		}
@@ -524,24 +553,21 @@ var SoftBlockObject = (function () {
 var DoorObject = (function () {
 	function DoorObject(grid_x, grid_y) {
 		this._burnt = false;
-		this._type = TYPE.DOOR|TYPE.PASSABLE;
+		this._type = TYPE.DOOR|TYPE.PASSABLE|TYPE.DESTROYABLE;
 		this._image = IMG.DOOR;
+		this._animation = [IMG.DOOR];
+		this._ticks_per_frame = 42;
+		this._loop = false;
 		this.setGridPosition(grid_x, grid_y);
 	};
 	
-	DoorObject.prototype = new GameObject;
+	DoorObject.prototype = new DestroyableObject;
 	
-	DoorObject.prototype.burn = function () {		
-		this._burnt = true;
+	DoorObject.prototype.onEnd = function () {
 		var spawn_point = { x: this._grid_x, y: this._grid_y };
-		// TODO: delay -___-
 		for (var i = 0; i < 4; i++) {
 			enemies.push(Enemy('PONTAN', spawn_point));
 		}
-	};
-	
-	DoorObject.prototype.getBurnt = function () {
-		return this._burnt;
 	};
 	
 	return DoorObject;
@@ -549,14 +575,24 @@ var DoorObject = (function () {
 
 var PowerObject = (function () {
 	function PowerObject(grid_x, grid_y, power_name) {
-		this._type = TYPE.POWER|TYPE.PASSABLE;
+		this._type = TYPE.POWER|TYPE.PASSABLE|TYPE.DESTROYABLE;
 		this._power = POWER[power_name];
 		this._image = IMG['POWER_' + power_name];
-		
+		this._animation = [this._image];
+		this._burnt = false;
+		this._ticks_per_frame = 42;
+		this._loop = false;
 		this.setGridPosition(grid_x, grid_y);
 	};
 	
-	PowerObject.prototype = new GameObject;
+	PowerObject.prototype = new DestroyableObject;
+	
+	PowerObject.prototype.onEnd = function () {
+		var spawn_point = { x: this._grid_x, y: this._grid_y };
+		for (var i = 0; i < 4; i++) {
+			enemies.push(Enemy('PONTAN', spawn_point));
+		}
+	};
 	
 	PowerObject.prototype.collect = function () {
 		sound.play('powerup');
@@ -606,7 +642,7 @@ var Explosion = (function () {
 				var target_y = grid_y + direct[1] * i;
 				var target = grid[target_x][target_y];
 				if (!target) continue;
-				if (target.is(TYPE.DOOR)) {
+				if (target.is(TYPE.DESTROYABLE)) {
 					if (!target.getBurnt()) {
 						hit = true;
 						target.burn();
@@ -622,10 +658,6 @@ var Explosion = (function () {
 				}
 				if (target.is(TYPE.BOMB)) {	target.burn(); }
 				if (target.is(TYPE.HARD_BLOCK)) { hit = true; }
-				if (target.is(TYPE.SOFT_BLOCK)) {
-					hit = true;
-					target.burn();
-				}
 			}
 		}
 		sound.play('explode', true);
