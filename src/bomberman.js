@@ -15,7 +15,8 @@ var STATE = {
 	LOADING: 1, 
 	PLAYING: 2,
 	PAUSED: 4,
-	YOU_DIED: 8
+	YOU_DIED: 8,
+	YOU_WIN: 16
 };
 var KEY = {
 	UP: 38,
@@ -1167,7 +1168,11 @@ var PlayerObject = (function () {
 		if (!door_spawned || enemies.length) { return; }
 		if (grid[this._grid_x][this._grid_y].is(TYPE.DOOR)) {
 			// TODO: handle next level transition
-			nextLevel();
+			if (level == 49) {
+				endGame(true);
+			} else {
+				nextLevel();
+			}
 		}
 	}
 	
@@ -1316,6 +1321,25 @@ var Hud = (function () {
 		}
 	};
 	
+	Hud.prototype.drawEndScreen = function (win) {
+		ctx.font = '14px monospace';
+		ctx.fillStyle = 'white';
+		if (is(game_state, STATE.YOU_DIED)) {
+			ctx.clearRect(0, 0 , CANVAS_WIDTH * descale, CANVAS_HEIGHT * descale);
+				ctx.fillText(
+				score,
+				CANVAS_WIDTH * 0.5 * descale,
+				CANVAS_HEIGHT * 0.09 * descale
+			);
+			ctx.fillText(
+				(win) ? "YOU WIN" : "YOU DIED",
+				CANVAS_WIDTH * 0.45 * descale,
+				CANVAS_HEIGHT * 0.5 * descale
+			);
+			return;
+		}
+	};
+	
 	Hud.prototype.draw = function () {
 		ctx.font = '14px monospace';
 		ctx.fillStyle = 'white';
@@ -1334,15 +1358,6 @@ var Hud = (function () {
 			CANVAS_WIDTH * 0.75 * descale,
 			CANVAS_HEIGHT * 0.09 * descale
 		);
-		if (is(game_state, STATE.YOU_DIED)) {
-			ctx.clearRect(0, 0 , CANVAS_WIDTH * descale, CANVAS_HEIGHT * descale);
-			ctx.fillText(
-				"YOU DIED",
-				CANVAS_WIDTH * 0.45 * descale,
-				CANVAS_HEIGHT * 0.5 * descale
-			);
-			return;
-		}
 		ctx.fillText(
 			"Left " + player.getLives(),
 			CANVAS_WIDTH * 0.90 * descale,
@@ -1539,8 +1554,15 @@ function gameloop() {
 	handleInput(key_press, keys_down);
 	key_press = [];
 	
-	if (is(game_state, STATE.YOU_DIED)) {
-		hud.draw();
+	if (is(game_state, STATE.YOU_DIED|STATE.YOU_WIN)) {
+		hud.drawEndScreen();
+		window.requestAnimationFrame(gameloop);
+		return;
+	}
+	
+	if (is(game_state, STATE.YOU_WIN)) {
+		hud.drawEndScreen(true);
+		window.requestAnimationFrame(gameloop);
 		return;
 	}
 	
@@ -1559,8 +1581,8 @@ function gameloop() {
 	}
 };
 
-function endGame() {
-	game_state = STATE.YOU_DIED;
+function endGame(win) {
+	game_state = (win) ? STATE.YOU_WIN : STATE.YOU_DIED;
 }
 
 function nextLevel(){
