@@ -565,8 +565,10 @@ var DoorObject = (function () {
 	
 	DoorObject.prototype.onEnd = function () {
 		var spawn_point = { x: this._grid_x, y: this._grid_y };
-		for (var i = 0; i < 4; i++) {
-			enemies.push(Enemy('PONTAN', spawn_point));
+		for (var i = 0; i < 8; i++) {
+			var nextLevelEnemy
+				= Object.keys(LEVEL[(level + 1) % 50].enemies).slice(-1)[0];
+			enemies.push(Enemy(nextLevelEnemy, spawn_point));
 		}
 	};
 	
@@ -854,6 +856,16 @@ var BombObject = (function () {
 		this.queue('explode', 0.5);
 	};
 	
+	BombObject.prototype.clear = function (){
+		if (this._enabled) {
+			this.disable();
+			bomb_sequence.shift();
+			this.setImage(IMG.NOTHING);
+			grid[this._grid_x][this._grid_y] =
+				new GameObject(this._grid_x, this._grid_y, 'PASSABLE');
+		}
+	};
+	
 	BombObject.prototype.trigger = function (key) {
 		switch (key) {
 			case 'explode': this.explode(); break;
@@ -1077,6 +1089,9 @@ var PlayerObject = (function () {
 		this._can_pass &= ~POWER.PASS_WALL&~POWER.PASS_BOMB;
 		this._flameproof = false;
 		this._can_detonate = false;
+		for (i = 0; i < MAX_BOMBS; i++) {
+			bombs[i].clear();
+		}
 		this.spawn();
 		if (!last_press_fake) {
 			key_press[KEY.UP] = keys_down[KEY.UP];
@@ -1486,6 +1501,9 @@ function nextLevel(){
 	level++;
 	level%=50;
 	timer = 200000;
+	for (i = 0; i < MAX_BOMBS; i++) {
+		bombs[i].clear();
+	}
 	player.addLife();
 	player.spawn();
 	generateMap();
