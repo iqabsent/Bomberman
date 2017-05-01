@@ -14,7 +14,8 @@ var STATE = {
 	ERROR: 0,
 	LOADING: 1, 
 	PLAYING: 2,
-	PAUSED: 4
+	PAUSED: 4,
+	YOU_DIED: 8
 };
 var KEY = {
 	UP: 38,
@@ -1075,7 +1076,11 @@ var PlayerObject = (function () {
 		this._should_animate = false;
 		scroll_offset_x = 0;
 		scroll_offset_y = 0;
-		if (this._lives) { this._lives--; }
+		if (this._lives) {
+			this._lives--;
+		} else {
+			endGame();
+		}
 		this._can_pass &= ~POWER.PASS_WALL&~POWER.PASS_BOMB;
 		this._flameproof = false;
 		this._can_detonate = false;
@@ -1325,6 +1330,20 @@ var Hud = (function () {
 			CANVAS_HEIGHT * 0.09 * descale
 		);
 		ctx.fillText(
+			"Level " + (level + 1),
+			CANVAS_WIDTH * 0.75 * descale,
+			CANVAS_HEIGHT * 0.09 * descale
+		);
+		if (is(game_state, STATE.YOU_DIED)) {
+			ctx.clearRect(0, 0 , CANVAS_WIDTH * descale, CANVAS_HEIGHT * descale);
+			ctx.fillText(
+				"YOU DIED",
+				CANVAS_WIDTH * 0.45 * descale,
+				CANVAS_HEIGHT * 0.5 * descale
+			);
+			return;
+		}
+		ctx.fillText(
 			"Left " + player.getLives(),
 			CANVAS_WIDTH * 0.90 * descale,
 			CANVAS_HEIGHT * 0.09 * descale
@@ -1516,9 +1535,14 @@ function spawnEnemies(level_enemies) {
 	})
 };
 
-function gameloop(){
+function gameloop() {
 	handleInput(key_press, keys_down);
 	key_press = [];
+	
+	if (is(game_state, STATE.YOU_DIED)) {
+		hud.draw();
+		return;
+	}
 	
 	// if not paused
 	if (is(game_state, STATE.PAUSED)) {
@@ -1534,6 +1558,10 @@ function gameloop(){
 		updateTimer();
 	}
 };
+
+function endGame() {
+	game_state = STATE.YOU_DIED;
+}
 
 function nextLevel(){
 	level++;
