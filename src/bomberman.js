@@ -63,7 +63,7 @@ var ONE_OVER_BLOCK_WIDTH = 1 / BLOCK_WIDTH;
 var ONE_OVER_BLOCK_HEIGHT = 1 / BLOCK_HEIGHT;
 var DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 var DEFAULT_LIVES = 2;
-var INVINCIBILITY_TIMER = 35;
+var INVINCIBILITY_TIMER = 35000;
 var LEVEL_TIME = 200000;
 
 // asset data
@@ -1035,10 +1035,11 @@ var powerUp = {
 	},
 	[POWER.FIREPROOF]: function () {
 		this._flameproof = true;
-		this.
 	},
 	[POWER.INVINCIBLE]: function () {
 		this._invincibility_timer = INVINCIBILITY_TIMER;
+		this.updateAnimation();
+		this.animate();
 	}
 }
 
@@ -1049,12 +1050,12 @@ var PlayerObject = (function () {
 		this._default_animation = ANI.MAN_DOWN;
 		this._spawn_point = { x: 1, y: 1 };
 		this._lives = DEFAULT_LIVES;
-		this._bomb_yield = 2;
-		this._max_bombs = 10;
+		this._bomb_yield = 1;
+		this._max_bombs = 1;
 		this._max_movement_speed = SPEED.NORMAL;
 		this._invincibility_timer = 0;
 		this._flameproof = false;
-		this._can_detonate = true;
+		this._can_detonate = false;
 		this.spawn();
 	};
 
@@ -1102,7 +1103,41 @@ var PlayerObject = (function () {
 	PlayerObject.prototype.addLife = function () {
 		this._lives++;
 	}
+	
+	PlayerObject.prototype.updateTimer = function (time_passed) {
+		if (this._invincibility_timer && time_passed) {
+			this._invincibility_timer -= time_passed;
+			if (this._invincibility_timer <= 0) {
+				this._invincibility_timer = 0;
+				this.updateAnimation();
+				this.animate();
+			}
+		}
+	}
 
+	PlayerObject.prototype.updateAnimation = function () {
+		if (this._direction_y == -1)
+			this.setAnimation((this._invincibility_timer)
+				? ANI.MAN_I_UP
+				: ANI.MAN_UP
+			);
+		if (this._direction_y == 1)
+			this.setAnimation((this._invincibility_timer)
+				? ANI.MAN_I_DOWN
+				: ANI.MAN_DOWN
+			);
+		if (this._direction_x == -1)
+			this.setAnimation((this._invincibility_timer)
+				? ANI.MAN_I_LEFT
+				: ANI.MAN_LEFT
+			);
+		if (this._direction_x == 1)
+			this.setAnimation((this._invincibility_timer)
+				? ANI.MAN_I_RIGHT
+				: ANI.MAN_RIGHT
+			);
+	}
+	
 	PlayerObject.prototype.checkBurn = function () {
 		if (this._invincibility_timer) return;
 		if (!this._flameproof
@@ -1175,22 +1210,34 @@ var PlayerObject = (function () {
 			case KEY.UP:
 				this._direction_x = 0;
 				this._direction_y = -1;
-				this.setAnimation(ANI.MAN_UP);
+				this.setAnimation(
+					(this._invincibility_timer)
+						? ANI.MAN_I_UP : ANI.MAN_UP
+				);
 				break;
 			case KEY.DOWN:
 				this._direction_x = 0;
 				this._direction_y = 1;
-				this.setAnimation(ANI.MAN_DOWN);
+				this.setAnimation(
+					(this._invincibility_timer)
+						? ANI.MAN_I_DOWN : ANI.MAN_DOWN
+				);
 				break;
 			case KEY.LEFT:
 				this._direction_x = -1;
 				this._direction_y = 0;
-				this.setAnimation(ANI.MAN_LEFT);
+				this.setAnimation(
+					(this._invincibility_timer)
+						? ANI.MAN_I_LEFT : ANI.MAN_LEFT
+				);
 				break;
 			case KEY.RIGHT:
 				this._direction_x = 1;
 				this._direction_y = 0;
-				this.setAnimation(ANI.MAN_RIGHT);
+				this.setAnimation(
+					(this._invincibility_timer)
+							? ANI.MAN_I_RIGHT : ANI.MAN_RIGHT
+					);
 				break;
 		}
 	};
@@ -1355,9 +1402,13 @@ function findPassable(min_distance_from_start) {
 
 function updateTimer() {
 	var now = Date.now();
-	if (timer && last_pass) {
-		timer -= now - last_pass;
+	var time_passed = now - last_pass;
+	if (last_pass) {
+		if (timer) {
+			timer -= time_passed;
+		}
 	}
+	player.updateTimer(time_passed);
 	last_pass = now;
 	if (timer <= 0) {
 		timer = 0;
@@ -1548,6 +1599,7 @@ function draw(){
 // keys
 window.addEventListener('keydown', function (event) {
 	// record only if key is not already in down state
+	if (is(game_state, STATE.PAUSED) && event.keyCode !== KEY.ENTER) return;
 	last_press_fake = false;
 	if (!keys_down[event.keyCode]) {
 		key_press[event.keyCode] = true; // cleared every tick
@@ -1577,6 +1629,7 @@ var PointDevice = (function () {
 	PointDevice.prototype.point = function (x, y) {
 		// catch button press
 		if (x < 100) { // TODO: find good margin
+			if (is(game_state, STATE.PAUSED)) return;
 			keys_down[KEY.S] = true;
 			return;
 		}
