@@ -1088,7 +1088,7 @@ var PlayerObject = (function () {
 		} else {
 			endGame();
 		}
-		this._can_pass &= ~POWER.PASS_WALL&~POWER.PASS_BOMB;
+		this._can_pass = TYPE.PASSABLE;
 		this._flameproof = false;
 		this._can_detonate = false;
 		for (i = 0; i < MAX_BOMBS; i++) {
