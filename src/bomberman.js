@@ -26,6 +26,7 @@ var KEY = {
 	W: 87,
 	S: 83,
 	D: 68,
+	M: 77,
 	ENTER: 13
 }
 var POWER = {
@@ -295,6 +296,7 @@ var descale = 1;
 var sound = null;
 var music = null;
 var volume = 0.2;
+var play_music = true;
 var timer = 200000;
 var time_up = false;
 var last_pass = 0;
@@ -1318,6 +1320,13 @@ var Hud = (function () {
 				sound.togglePause(is(game_state, STATE.PAUSED));
 				music.togglePause(is(game_state, STATE.PAUSED))
 				break;
+			case KEY.M:
+				play_music = !play_music;
+				if (is(game_state, STATE.PAUSED)) { return; }
+				(play_music)
+					? music.play('level')
+					: music.stop('level');
+				break;
 		}
 	};
 	
@@ -1464,11 +1473,11 @@ var Music = (function(){
 			if (music.currentTime) music.currentTime = 0;
 			this._playing.splice(this._playing.indexOf(key), 1);
 		}
-	}
-	
+	};
+		
 	Music.prototype.togglePause = function (paused) {
 		this._playing.forEach(function(key){
-			if (key === 'pause') { return; }
+			if (key === 'pause' || !play_music) { return; }
 			(paused)
 				? this._music[key].pause()
 				: this._music[key].play();
