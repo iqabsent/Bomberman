@@ -1340,7 +1340,7 @@ var Hud = (function () {
 	Hud.prototype.drawEndScreen = function (win) {
 		ctx.font = '14px monospace';
 		ctx.fillStyle = 'white';
-		if (is(game_state, STATE.YOU_DIED)) {
+		if (is(game_state, STATE.YOU_DIED|STATE.YOU_WIN)) {
 			ctx.clearRect(0, 0 , CANVAS_WIDTH * descale, CANVAS_HEIGHT * descale);
 				ctx.fillText(
 				score,
@@ -1634,7 +1634,7 @@ function gameloop() {
 	handleInput(key_press, keys_down);
 	key_press = [];
 	
-	if (is(game_state, STATE.YOU_DIED|STATE.YOU_WIN)) {
+	if (is(game_state, STATE.YOU_DIED)) {
 		hud.drawEndScreen();
 		window.requestAnimationFrame(gameloop);
 		return;
